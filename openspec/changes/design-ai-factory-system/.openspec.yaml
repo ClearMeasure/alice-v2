@@ -1,0 +1,21 @@
+name: design-ai-factory-system
+description: Design the AI Software Factory system with three modules - Work Item Instrumentation, Worker Agents, and Intelligence Dashboard
+created: 2026-03-20
+status: proposed
+artifacts:
+  - id: proposal
+    type: proposal
+    outputPath: proposal.md
+    status: pending
+    dependencies: []
+  - id: design
+    type: design
+    outputPath: design.md
+    status: pending
+    dependencies: [proposal]
+  - id: tasks
+    type: tasks
+    outputPath: tasks.md
+    status: pending
+    dependencies: [design]
+applyRequires: [tasks]
