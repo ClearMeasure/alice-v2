@@ -3,7 +3,6 @@ using System.Text.Json;
 using ClearMeasure.Bootcamp.Core;
 using ClearMeasure.Bootcamp.Core.Model;
 using ClearMeasure.Bootcamp.Core.Queries;
-using ClearMeasure.Bootcamp.UI.Shared.Pages;
 using ModelContextProtocol.Server;
 
 namespace ClearMeasure.Bootcamp.McpServer.Tools;
@@ -11,7 +10,7 @@ namespace ClearMeasure.Bootcamp.McpServer.Tools;
 [McpServerToolType]
 public class EmployeeTools
 {
-    [McpServerTool(Name = "list-employees"), Description("Lists all employees in the system with their username, name, email, and roles.")]
+    [McpServerTool(Name = "list-employees"), Description("Lists all employees in the system with their identifier, username, and full name.")]
     public static async Task<string> ListEmployees(IBus bus)
     {
         var employees = await bus.Send(new EmployeeGetAllQuery());
@@ -22,7 +21,7 @@ public class EmployeeTools
     [McpServerTool(Name = "get-employee"), Description("Retrieves a single employee by username.")]
     public static async Task<string> GetEmployee(
         IBus bus,
-        [Description("The employee's username")] string username)
+        [Description("The employee username")] string username)
     {
         try
         {
@@ -36,17 +35,10 @@ public class EmployeeTools
         }
     }
 
-    private static object FormatEmployee(Employee emp) => new
+    private static object FormatEmployee(Employee employee) => new
     {
-        emp.UserName,
-        emp.FirstName,
-        emp.LastName,
-        emp.EmailAddress,
-        Roles = emp.Roles.Select(r => new
-        {
-            r.Name,
-            r.CanCreateWorkOrder,
-            r.CanFulfillWorkOrder
-        }).ToArray()
+        employee.Id,
+        employee.UserName,
+        employee.FullName
     };
 }

@@ -19,8 +19,8 @@ public class McpEmployeeToolTests
     [Test]
     public async Task ShouldListAllEmployees()
     {
-        var emp1 = new Employee("jdoe", "John", "Doe", "john@test.com");
-        var emp2 = new Employee("jsmith", "Jane", "Smith", "jane@test.com");
+        var emp1 = new Employee("jdoe", "John Doe");
+        var emp2 = new Employee("jsmith", "Jane Smith");
 
         using (var context = TestHost.GetRequiredService<DbContext>())
         {
@@ -34,8 +34,8 @@ public class McpEmployeeToolTests
 
         result.ShouldContain("jdoe");
         result.ShouldContain("jsmith");
-        result.ShouldContain("John");
-        result.ShouldContain("Jane");
+        result.ShouldContain("John Doe");
+        result.ShouldContain("Jane Smith");
     }
 
     [Test]
@@ -50,11 +50,11 @@ public class McpEmployeeToolTests
     [Test]
     public async Task ShouldGetEmployeeByUsername()
     {
-        var emp = new Employee("jdoe", "John", "Doe", "john@test.com");
+        var employee = new Employee("jdoe", "John Doe");
 
         using (var context = TestHost.GetRequiredService<DbContext>())
         {
-            context.Add(emp);
+            context.Add(employee);
             await context.SaveChangesAsync();
         }
 
@@ -62,9 +62,7 @@ public class McpEmployeeToolTests
         var result = await EmployeeTools.GetEmployee(bus, "jdoe");
 
         result.ShouldContain("jdoe");
-        result.ShouldContain("John");
-        result.ShouldContain("Doe");
-        result.ShouldContain("john@test.com");
+        result.ShouldContain("John Doe");
     }
 
     [Test]

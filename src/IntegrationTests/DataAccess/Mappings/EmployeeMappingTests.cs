@@ -1,36 +1,33 @@
-﻿using ClearMeasure.Bootcamp.Core.Model;
+using ClearMeasure.Bootcamp.Core.Model;
 using Microsoft.EntityFrameworkCore;
+using Shouldly;
 
 namespace ClearMeasure.Bootcamp.IntegrationTests.DataAccess.Mappings;
 
+[TestFixture]
 public class EmployeeMappingTests
 {
     [Test]
-    public void ShouldSaveRolesWithEmployee()
+    public void ShouldPersistEmployeeShape()
     {
         new DatabaseTests().Clean();
 
-        var role1 = new Role("foo", false, false);
-        var role2 = new Role("bar", true, true);
-        var emp1 = new Employee("1", "first1", "last1", "email1");
-        emp1.AddRole(role1);
-        emp1.AddRole(role2);
+        var employee = new Employee("persisted-user", "Persisted User");
 
         using (var context = TestHost.GetRequiredService<DbContext>())
         {
-            context.Add(role1);
-            context.Add(role2);
-            context.Add(emp1);
+            context.Add(employee);
             context.SaveChanges();
         }
 
         using (var context = TestHost.GetRequiredService<DbContext>())
         {
             var rehydratedEmployee = context.Set<Employee>()
-                .Include("Roles")
-                .Single(e => e.Id == emp1.Id);
+                .Single(e => e.Id == employee.Id);
 
-            Assert.That(rehydratedEmployee.Roles.Count, Is.EqualTo(2));
+            rehydratedEmployee.Id.ShouldBe(employee.Id);
+            rehydratedEmployee.UserName.ShouldBe("persisted-user");
+            rehydratedEmployee.FullName.ShouldBe("Persisted User");
         }
     }
 }

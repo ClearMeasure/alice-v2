@@ -1,6 +1,6 @@
 using ClearMeasure.Bootcamp.McpServer;
-using ClearMeasure.Bootcamp.McpServer.Tools;
 using ClearMeasure.Bootcamp.McpServer.Resources;
+using ClearMeasure.Bootcamp.McpServer.Tools;
 using Lamar.Microsoft.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -19,11 +19,10 @@ var mcpBuilder = builder.Services
     {
         options.ServerInfo = new()
         {
-            Name = "ChurchBulletin",
+            Name = "ApplicationSkeleton",
             Version = "1.0.0"
         };
     })
-    .WithTools<WorkOrderTools>()
     .WithTools<EmployeeTools>()
     .WithResources<ReferenceResources>();
 

@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.AI;
 
 namespace ClearMeasure.Bootcamp.LlmGateway;
@@ -10,14 +10,11 @@ public class ApplicationChatHandler(ChatClientFactory factory, IToolProvider too
         var tools = await toolProvider.GetToolsAsync();
         var chatOptions = new ChatOptions { Tools = tools };
 
-        string prompt = request.Prompt;
-        var chatMessages = new List<ChatMessage>()
+        var chatMessages = new List<ChatMessage>
         {
-            new(ChatRole.System, "You are a helpful AI assistant for a work order management application. " +
-                                 "You can help with general questions, look up work orders, find employees, " +
-                                 "and assist with any tasks related to managing work orders."),
-            new(ChatRole.System, "Limit answer to 3 sentences. Be brief"),
-            new(ChatRole.System, $"Currently logged in user is {request.CurrentUsername}"),
+            new(ChatRole.System, "You are a helpful assistant for an application architecture skeleton. Use available tools to answer brief questions about employees and retained application capabilities."),
+            new(ChatRole.System, "Limit answer to 3 sentences. Be brief."),
+            new(ChatRole.System, $"Currently logged in user is {request.CurrentUsername}")
         };
 
         foreach (var history in request.ChatHistory)
@@ -26,10 +23,9 @@ public class ApplicationChatHandler(ChatClientFactory factory, IToolProvider too
             chatMessages.Add(new ChatMessage(role, history.Content));
         }
 
-        chatMessages.Add(new ChatMessage(ChatRole.User, prompt));
+        chatMessages.Add(new ChatMessage(ChatRole.User, request.Prompt));
 
         IChatClient client = await factory.GetChatClient();
-        ChatResponse response = await client.GetResponseAsync(chatMessages, chatOptions);
-        return response;
+        return await client.GetResponseAsync(chatMessages, chatOptions, cancellationToken);
     }
 }

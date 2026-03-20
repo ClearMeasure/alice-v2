@@ -1,12 +1,12 @@
 using ClearMeasure.Bootcamp.Core;
+using ClearMeasure.Bootcamp.Core.Messaging;
 using ClearMeasure.Bootcamp.Core.Model;
 using ClearMeasure.Bootcamp.Core.Model.Events;
-using ClearMeasure.Bootcamp.UI.Shared.Pages;
+using ClearMeasure.Bootcamp.Core.Queries;
 using ClearMeasure.Bootcamp.UI.Server.Controllers;
 using MediatR;
 using Shouldly;
 using System.Text.Json;
-using ClearMeasure.Bootcamp.Core.Messaging;
 
 namespace ClearMeasure.Bootcamp.UnitTests.UI.Server;
 
@@ -16,7 +16,7 @@ public class SingleApiControllerTests
     [Test]
     public async Task Should_Post_ReturnSerializedResponse_ForRemotableRequest()
     {
-        var expectedEmployees = new[] { new Employee("hsimpson", "Homer", "Simpson", "homer@test.com") };
+        var expectedEmployees = new[] { new Employee("hsimpson", "Homer Simpson") };
         var stubBus = new StubBus();
         stubBus.SetSendResponse(expectedEmployees);
         var controller = new SingleApiController(stubBus);
@@ -29,6 +29,7 @@ public class SingleApiControllerTests
         var result = (Employee[])responseMessage.GetBodyObject();
         result.Length.ShouldBe(1);
         result[0].UserName.ShouldBe("hsimpson");
+        result[0].FullName.ShouldBe("Homer Simpson");
     }
 
     [Test]

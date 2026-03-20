@@ -77,7 +77,7 @@ public class ServerFixture
         };
         using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
 
-        string[] warmUpPaths = ["/", "/_healthcheck", "/_clienthealthcheck"];
+        string[] warmUpPaths = ["/", "/_healthcheck"];
 
         for (var attempt = 1; attempt <= 3; attempt++)
         {

@@ -1,11 +1,8 @@
-﻿using ClearMeasure.Bootcamp.Core;
-using ClearMeasure.Bootcamp.Core.Services;
-using ClearMeasure.Bootcamp.Core.Services.Impl;
+using ClearMeasure.Bootcamp.Core;
 using ClearMeasure.Bootcamp.DataAccess;
 using ClearMeasure.Bootcamp.DataAccess.Mappings;
 using ClearMeasure.Bootcamp.LlmGateway;
 using ClearMeasure.Bootcamp.McpServer;
-using ClearMeasure.Bootcamp.McpServer.Tools;
 using ClearMeasure.Bootcamp.UI.Api;
 using ClearMeasure.Bootcamp.UI.Shared;
 using Lamar;
@@ -28,12 +25,6 @@ public class UiServiceRegistry : ServiceRegistry
             var mediator = provider.GetRequiredService<IMediator>();
             return new Bus(mediator);
         });
-
-        this.AddTransient<IWorkOrderNumberGenerator, WorkOrderNumberGenerator>();
-
-        // Register AI agent and background service
-        this.AddTransient<WorkOrderReformatAgent>();
-        this.AddHostedService<AutoReformatAgentService>();
 
         Scan(scanner =>
         {
