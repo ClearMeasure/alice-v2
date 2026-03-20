@@ -8,7 +8,7 @@ namespace ClearMeasure.Bootcamp.DataAccess.Handlers;
 public class TelemetryHandler(ILogger<TelemetryHandler> logger)
     : INotificationHandler<UserLoggedInEvent>
 {
-    private static readonly Meter Meter = new("ChurchBulletin.Application", "1.0.0");
+    private static readonly Meter Meter = new("AISoftwareFactory.Application", "1.0.0");
 
     public static readonly Counter<long> LoginCounter = Meter.CreateCounter<long>(
         "app.user.logins",

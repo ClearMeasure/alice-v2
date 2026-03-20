@@ -40,7 +40,7 @@ public class ToolProvider(IServer server, ILogger<ToolProvider> logger) : IToolP
             var transportOptions = new HttpClientTransportOptions
             {
                 Endpoint = new Uri(mcpUrl),
-                Name = "ChurchBulletin-Loopback"
+                Name = "AISoftwareFactory-Loopback"
             };
             var transport = new HttpClientTransport(transportOptions, httpClient);
 

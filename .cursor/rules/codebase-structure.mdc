@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Solution and Projects
 
-**Solution:** `src/AISoftwareFactory.sln`
+**Solution:** `src/AISoftwareFactory.slnx`
 
 | Project | Path | Role |
 |---------|------|------|
@@ -19,8 +19,8 @@ alwaysApply: true
 | UI.Api | `src/UI/Api/UI.Api.csproj` | Web API |
 | UI.Shared | `src/UI.Shared/UI.Shared.csproj` | Shared UI |
 | LlmGateway | `src/LlmGateway/LlmGateway.csproj` | Azure OpenAI / Ollama |
-| ChurchBulletin.AppHost | `src/ChurchBulletin.AppHost/` | Aspire AppHost |
-| ChurchBulletin.ServiceDefaults | `src/ChurchBulletin.ServiceDefaults/` | Aspire defaults |
+| AppHost | `src/AppHost/AppHost.csproj` | Aspire AppHost |
+| ServiceDefaults | `src/ServiceDefaults/ServiceDefaults.csproj` | Aspire shared defaults |
 | Worker | `src/Worker/Worker.csproj` | Hosted endpoint worker service |
 | UnitTests | `src/UnitTests/UnitTests.csproj` | NUnit + Shouldly |
 | IntegrationTests | `src/IntegrationTests/IntegrationTests.csproj` | NUnit, LocalDB |

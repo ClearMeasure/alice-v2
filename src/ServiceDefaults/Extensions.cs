@@ -16,7 +16,7 @@ public static class Extensions
     private const string HealthEndpointPath = "/health";
     private const string AlivenessEndpointPath = "/alive";
 
-    public static readonly ActivitySource ApplicationActivitySource = new("ChurchBulletin.Application", "1.0.0");
+    public static readonly ActivitySource ApplicationActivitySource = new("AISoftwareFactory.Application", "1.0.0");
 
     /// <summary>
     /// Adds a set of default services and configurations including OpenTelemetry instrumentation, health checks, and service discovery.
@@ -55,14 +55,14 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
-                    .AddMeter("ChurchBulletin.Application");
+                    .AddMeter("AISoftwareFactory.Application");
             })
             .WithTracing(tracing =>
             {
                 tracing.AddSource(builder.Environment.ApplicationName)
-                    .AddSource("ChurchBulletin.Application")
-                    .AddSource("ChurchBulletin.Application.Bus")
-                    .AddSource("ChurchBulletin.LlmGateway")
+                    .AddSource("AISoftwareFactory.Application")
+                    .AddSource("AISoftwareFactory.Application.Bus")
+                    .AddSource("AISoftwareFactory.LlmGateway")
                     .AddSource("NServiceBus.Core")
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
