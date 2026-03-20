@@ -19,6 +19,8 @@ public class UiServiceRegistry : ServiceRegistry
     {
         this.AddScoped<DbContext, DataContext>();
         this.AddTransient<IWorkItemWebhookTranslator, GitHubProjectsV2WebhookTranslator>();
+        this.AddSingleton<IWebhookReceiptTracker, WebhookReceiptTracker>();
+        this.AddSingleton<IGitHubProjectClient, GitHubProjectClient>();
 
         this.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<UiServiceRegistry>());
         this.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<HealthCheck>());
@@ -44,6 +46,7 @@ public class UiServiceRegistry : ServiceRegistry
             .AddCheck<CanConnectToLlmServerHealthCheck>("LlmGateway")
             .AddCheck<CanConnectToDatabaseHealthCheck>("DataAccess")
             .AddCheck<Is64BitProcessHealthCheck>("Server")
-            .AddCheck<HealthCheck>("API");
+            .AddCheck<HealthCheck>("API")
+            .AddCheck<GitHubWebhookHealthCheck>("GitHubWebhook");
     }
 }

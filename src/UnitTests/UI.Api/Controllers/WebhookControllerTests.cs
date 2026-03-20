@@ -2,6 +2,7 @@ using ClearMeasure.Bootcamp.Core;
 using ClearMeasure.Bootcamp.Core.Commands;
 using ClearMeasure.Bootcamp.Core.Services;
 using ClearMeasure.Bootcamp.UI.Api.Controllers;
+using ClearMeasure.Bootcamp.UI.Api.Webhooks;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,6 +13,14 @@ namespace ClearMeasure.Bootcamp.UnitTests.UI.Api.Controllers;
 [TestFixture]
 public class WebhookControllerTests
 {
+    private WebhookReceiptTracker _tracker = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _tracker = new WebhookReceiptTracker();
+    }
+
     [Test]
     public async Task Receive_WithMatchingTranslator_ReturnsRecordedStatus()
     {
@@ -21,7 +30,7 @@ public class WebhookControllerTests
             new RecordWorkItemEventCommand("EXT1", "GitHub", "StatusChanged",
                 "Todo", "Done", "Title", "Proj", DateTimeOffset.UtcNow, "{}"));
         var controller = new WebhookController(
-            [translator], stubBus, NullLogger<WebhookController>.Instance);
+            [translator], stubBus, _tracker, NullLogger<WebhookController>.Instance);
 
         var result = await controller.Receive("GitHub", "{}");
 
@@ -32,11 +41,28 @@ public class WebhookControllerTests
     }
 
     [Test]
+    public async Task Receive_WithMatchingTranslator_RecordsReceiptInTracker()
+    {
+        var eventId = Guid.NewGuid();
+        var stubBus = new StubBus(eventId);
+        var translator = new StubTranslator("GitHub", canHandle: true,
+            new RecordWorkItemEventCommand("EXT1", "GitHub", "StatusChanged",
+                "Todo", "Done", "Title", "Proj", DateTimeOffset.UtcNow, "{}"));
+        var controller = new WebhookController(
+            [translator], stubBus, _tracker, NullLogger<WebhookController>.Instance);
+
+        await controller.Receive("GitHub", "{}");
+
+        var received = await _tracker.WaitForReceiptAsync("GitHub", TimeSpan.FromMilliseconds(100));
+        received.ShouldBeTrue();
+    }
+
+    [Test]
     public async Task Receive_WithNoMatchingTranslator_ReturnsIgnoredStatus()
     {
         var stubBus = new StubBus(Guid.NewGuid());
         var controller = new WebhookController(
-            [], stubBus, NullLogger<WebhookController>.Instance);
+            [], stubBus, _tracker, NullLogger<WebhookController>.Instance);
 
         var result = await controller.Receive("Unknown", "{}");
 
@@ -49,7 +75,7 @@ public class WebhookControllerTests
         var stubBus = new StubBus(Guid.NewGuid());
         var translator = new StubTranslator("GitHub", canHandle: true, command: null);
         var controller = new WebhookController(
-            [translator], stubBus, NullLogger<WebhookController>.Instance);
+            [translator], stubBus, _tracker, NullLogger<WebhookController>.Instance);
 
         var result = await controller.Receive("GitHub", "{}");
 
@@ -66,7 +92,7 @@ public class WebhookControllerTests
             new RecordWorkItemEventCommand("EXT1", "GitHub", "Created",
                 null, "Todo", "Title", "Proj", DateTimeOffset.UtcNow, "{}"));
         var controller = new WebhookController(
-            [translator], stubBus, NullLogger<WebhookController>.Instance);
+            [translator], stubBus, _tracker, NullLogger<WebhookController>.Instance);
 
         var result = await controller.Receive("github", "{}");
 

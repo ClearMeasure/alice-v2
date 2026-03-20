@@ -12,6 +12,7 @@ namespace ClearMeasure.Bootcamp.UI.Api.Controllers;
 public class WebhookController(
     IEnumerable<IWorkItemWebhookTranslator> translators,
     IBus bus,
+    IWebhookReceiptTracker receiptTracker,
     ILogger<WebhookController> logger) : ControllerBase
 {
     /// <summary>
@@ -42,6 +43,7 @@ public class WebhookController(
         }
 
         var eventId = await bus.Send(command);
+        receiptTracker.RecordReceipt(source, command.WorkItemExternalId);
         logger.LogInformation("Work item event {EventId} recorded from {Source}", eventId, source);
 
         return Ok(new { status = "recorded", eventId });
