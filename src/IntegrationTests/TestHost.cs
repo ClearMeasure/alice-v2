@@ -1,6 +1,5 @@
 using ClearMeasure.Bootcamp.Core;
 using ClearMeasure.Bootcamp.Core.Model.Messages;
-using ClearMeasure.Bootcamp.Core.Services;
 using ClearMeasure.Bootcamp.DataAccess.Mappings;
 using ClearMeasure.Bootcamp.DataAccess.Messaging;
 using ClearMeasure.Bootcamp.LlmGateway;
@@ -19,6 +18,7 @@ namespace ClearMeasure.Bootcamp.IntegrationTests;
 
 public static class TestHost
 {
+    private const string WorkerEndpointName = "BackgroundProcessing";
     public static DateTimeOffset TestTime { get; set; } = new(2000, 1, 1, 1, 1, 1, TimeSpan.Zero);
     private static bool _dependenciesRegistered;
     private static readonly object Lock = new();
@@ -82,7 +82,7 @@ public static class TestHost
                 {
                     var learningTransport = endpointConfiguration.UseTransport<LearningTransport>();
                     learningTransport.Routing()
-                        .RouteToEndpoint(typeof(TracerBulletCommand), "WorkOrderProcessing");
+                        .RouteToEndpoint(typeof(TracerBulletCommand), WorkerEndpointName);
                 }
                 else
                 {
@@ -91,7 +91,7 @@ public static class TestHost
                     transport.DefaultSchema("nServiceBus");
                     transport.Transactions(TransportTransactionMode.TransactionScope);
                     transport.Routing()
-                        .RouteToEndpoint(typeof(TracerBulletCommand), "WorkOrderProcessing");
+                        .RouteToEndpoint(typeof(TracerBulletCommand), WorkerEndpointName);
                 }
 
                 var conventions = new MessagingConventions();
@@ -113,10 +113,6 @@ public static class TestHost
         }
     }
 
-    /// <summary>
-    /// Provides tools directly via AIFunctionFactory for integration tests
-    /// that don't have a running MCP server.
-    /// </summary>
     private class InProcessToolProvider(IServiceProvider serviceProvider) : IToolProvider
     {
         private IBus CreateScopedBus()
@@ -125,42 +121,10 @@ public static class TestHost
             return scope.ServiceProvider.GetRequiredService<IBus>();
         }
 
-        private IWorkOrderNumberGenerator CreateScopedNumberGenerator()
-        {
-            var scope = serviceProvider.CreateScope();
-            return scope.ServiceProvider.GetRequiredService<IWorkOrderNumberGenerator>();
-        }
-
         public Task<IList<AITool>> GetToolsAsync()
         {
             IList<AITool> tools =
             [
-                AIFunctionFactory.Create(
-                    ([System.ComponentModel.Description("Optional status filter")] string? status = null)
-                        => WorkOrderTools.ListWorkOrders(CreateScopedBus(), status),
-                    "ListWorkOrders",
-                    "Lists all work orders, optionally filtered by status."),
-                AIFunctionFactory.Create(
-                    ([System.ComponentModel.Description("The work order number")] string workOrderNumber)
-                        => WorkOrderTools.GetWorkOrder(CreateScopedBus(), workOrderNumber),
-                    "GetWorkOrder",
-                    "Retrieves a single work order by its number."),
-                AIFunctionFactory.Create(
-                    ([System.ComponentModel.Description("Title")] string title,
-                     [System.ComponentModel.Description("Description")] string description,
-                     [System.ComponentModel.Description("Creator username")] string creatorUsername,
-                     [System.ComponentModel.Description("Optional room number")] string? roomNumber = null)
-                        => WorkOrderTools.CreateWorkOrder(CreateScopedBus(), CreateScopedNumberGenerator(), title, description, creatorUsername, roomNumber),
-                    "CreateWorkOrder",
-                    "Creates a new draft work order."),
-                AIFunctionFactory.Create(
-                    ([System.ComponentModel.Description("Work order number")] string workOrderNumber,
-                     [System.ComponentModel.Description("Command name")] string commandName ,
-                     [System.ComponentModel.Description("Executing username")] string executingUsername,
-                     [System.ComponentModel.Description("Assignee username")] string? assigneeUsername = null)
-                        => WorkOrderTools.ExecuteWorkOrderCommand(CreateScopedBus(), workOrderNumber, commandName, executingUsername, assigneeUsername),
-                    "ExecuteWorkOrderCommand",
-                    "Executes a state command on a work order."),
                 AIFunctionFactory.Create(
                     () => EmployeeTools.ListEmployees(CreateScopedBus()),
                     "ListEmployees",

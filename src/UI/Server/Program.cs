@@ -1,9 +1,7 @@
 using ClearMeasure.Bootcamp.Core;
-using ClearMeasure.Bootcamp.Core.Services;
-using ClearMeasure.Bootcamp.Core.Services.Impl;
 using ClearMeasure.Bootcamp.DataAccess.Messaging;
-using ClearMeasure.Bootcamp.McpServer.Tools;
 using ClearMeasure.Bootcamp.McpServer.Resources;
+using ClearMeasure.Bootcamp.McpServer.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,27 +13,22 @@ builder.Host.UseLamar(registry => { registry.IncludeRegistry<UiServiceRegistry>(
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IDistributedBus, DistributedBus>();
 
-// Add Application Insights
 builder.Services.AddApplicationInsightsTelemetry();
 
-// Add MCP server (HTTP transport at /mcp)
 builder.Services
     .AddMcpServer(options =>
     {
-        options.ServerInfo = new() { Name = "ChurchBulletin", Version = "1.0.0" };
+        options.ServerInfo = new() { Name = "ApplicationSkeleton", Version = "1.0.0" };
     })
     .WithHttpTransport()
-    .WithTools<WorkOrderTools>()
     .WithTools<EmployeeTools>()
     .WithResources<ReferenceResources>();
 
-// Add NServiceBus endpoint
 var endpointConfiguration = new NServiceBus.EndpointConfiguration("UI.Server");
 endpointConfiguration.UseSerialization<SystemJsonSerializer>();
 endpointConfiguration.EnableInstallers();
 endpointConfiguration.EnableOpenTelemetry();
 
-// transport
 var sqlConnectionString = builder.Configuration.GetConnectionString("SqlConnectionString") ?? "";
 if (sqlConnectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
 {
@@ -49,18 +42,15 @@ else
     transport.Transactions(TransportTransactionMode.TransactionScope);
 }
 
-// message conventions
 var conventions = new MessagingConventions();
 endpointConfiguration.Conventions().Add(conventions);
 
 builder.Host.UseNServiceBus(_ => endpointConfiguration);
 
-// Build application
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseWebAssemblyDebugging();
@@ -68,17 +58,13 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
-
 app.UseRouting();
-
 app.MapRazorPages();
 app.MapControllers();
 app.MapMcp("/mcp");

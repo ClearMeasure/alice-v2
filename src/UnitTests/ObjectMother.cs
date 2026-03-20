@@ -1,8 +1,7 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Reflection;
 using AutoBogus;
 using AutoBogus.Conventions;
-using ClearMeasure.Bootcamp.Core.Model;
 using Shouldly;
 
 namespace ClearMeasure.Bootcamp.UnitTests;
@@ -38,9 +37,6 @@ public class ObjectMother
         AutoFaker.Configure(builder =>
         {
             builder.WithConventions()
-                .WithSkip<WorkOrder>(wo => wo.Creator)
-                .WithSkip<WorkOrder>(wo => wo.Assignee)
-                .WithSkip<Employee>(wo => wo.Roles)
                 .WithOverride(new BogusOverrides());
         });
     }
@@ -63,13 +59,10 @@ public class ObjectMother
 
             var expectedValue = property.GetValue(expected, null);
             var actualValue = property.GetValue(actual, null);
-            if (!Equals(expectedValue, actualValue))
+            if (!Equals(expectedValue, actualValue) && property.DeclaringType != null)
             {
-                if (property.DeclaringType != null)
-                {
-                    Assert.Fail(
-                        $"Property {property.DeclaringType.Name}.{property.Name} does not match. Expected: {expectedValue} but was: {actualValue}");
-                }
+                Assert.Fail(
+                    $"Property {property.DeclaringType.Name}.{property.Name} does not match. Expected: {expectedValue} but was: {actualValue}");
             }
         }
     }

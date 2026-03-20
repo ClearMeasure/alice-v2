@@ -4,88 +4,29 @@ public class Employee : EntityBase<Employee>, IComparable<Employee>
 {
     public Employee()
     {
-        UserName = null!;
-        EmailAddress = null!;
-        FirstName = null!;
-        LastName = null!;
+        UserName = string.Empty;
+        FullName = string.Empty;
     }
 
-    public Employee(string userName, string firstName, string lastName, string emailAddress)
+    public Employee(string userName, string fullName)
     {
         UserName = userName;
-        FirstName = firstName;
-        LastName = lastName;
-        EmailAddress = emailAddress;
+        FullName = fullName;
     }
 
-    public override Guid Id { get; set; }
+    public override Guid Id { get; set; } = Guid.NewGuid();
 
     public string UserName { get; set; }
 
-    public string FirstName { get; set; }
-
-    public string LastName { get; set; }
-
-    public string EmailAddress { get; set; }
-
-    public string PreferredLanguage { get; set; } = "en-US";
-
-    public ISet<Role> Roles { get; init; } = new HashSet<Role>();
+    public string FullName { get; set; }
 
     public int CompareTo(Employee? other)
     {
-        var compareResult = string.Compare(LastName, other!.LastName, StringComparison.Ordinal);
-        if (compareResult == 0)
-        {
-            compareResult = string.Compare(FirstName, other.FirstName, StringComparison.Ordinal);
-        }
-
-        return compareResult;
-    }
-
-    public string GetFullName()
-    {
-        return string.Format("{0} {1}", FirstName, LastName);
+        return string.Compare(FullName, other?.FullName, StringComparison.Ordinal);
     }
 
     public override string ToString()
     {
-        return GetFullName();
-    }
-
-    public bool CanCreateWorkOrder()
-    {
-        foreach (var role in Roles)
-        {
-            if (role.CanCreateWorkOrder)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public bool CanFulfilWorkOrder()
-    {
-        foreach (var role in Roles)
-        {
-            if (role.CanFulfillWorkOrder)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public void AddRole(Role role)
-    {
-        Roles.Add(role);
-    }
-
-    public string GetNotificationEmail(DayOfWeek day)
-    {
-        return EmailAddress;
+        return FullName;
     }
 }

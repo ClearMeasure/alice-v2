@@ -1,18 +1,17 @@
-﻿using ClearMeasure.Bootcamp.Core;
+using ClearMeasure.Bootcamp.Core;
 using ClearMeasure.Bootcamp.DataAccess.Messaging;
-using ClearMeasure.Bootcamp.LlmGateway;
 using ClearMeasure.HostedEndpoint;
 using ClearMeasure.HostedEndpoint.Configuration;
 using Worker.Messaging;
 
 namespace Worker;
 
-public class WorkOrderEndpoint : ClearHostedEndpoint
+public class WorkerEndpoint : ClearHostedEndpoint
 {
-    private const string EndpointName = "WorkOrderProcessing";
+    private const string EndpointName = "BackgroundProcessing";
     private const string SchemaName = "nServiceBus";
 
-    public WorkOrderEndpoint(IConfiguration configuration) : base(configuration)
+    public WorkerEndpoint(IConfiguration configuration) : base(configuration)
     {
         EndpointOptions = new()
         {
@@ -29,48 +28,36 @@ public class WorkOrderEndpoint : ClearHostedEndpoint
         {
             ConnectionString = Configuration.GetConnectionString("SqlConnectionString"),
             Schema = SchemaName,
-            EnableSagaPersistence = true,
+            EnableSagaPersistence = false,
             EnableSubscriptionStorage = true
         };
     }
 
-    // Configure endpoint options
     protected override EndpointOptions EndpointOptions { get; }
 
-    // Configure SQL persistence for sagas
     protected override SqlPersistenceOptions SqlPersistenceOptions { get; }
 
-    // Configure the message transport
     protected override void ConfigureTransport(EndpointConfiguration endpointConfiguration)
     {
-        // OTEL
         endpointConfiguration.EnableOpenTelemetry();
 
-        // transport
         var transport = endpointConfiguration.UseTransport<SqlServerTransport>();
         transport.ConnectionString(SqlPersistenceOptions.ConnectionString);
         transport.DefaultSchema(SqlPersistenceOptions.Schema);
         transport.Transactions(TransportTransactionMode.TransactionScope);
         transport.Transport.TransportTransactionMode = TransportTransactionMode.ReceiveOnly;
 
-        // message conventions
         var conventions = new MessagingConventions();
         endpointConfiguration.Conventions().Add(conventions);
-
-        // routing
     }
 
-    // Register services
     protected override void RegisterDependencyInjection(IServiceCollection services)
     {
         var apiUrl = Configuration["RemotableBus:ApiUrl"]
                      ?? throw new InvalidOperationException("RemotableBus:ApiUrl configuration is required.");
 
         services.AddHttpClient();
-
         services.AddSingleton<IBus>(sp =>
             new RemotableBus(sp.GetRequiredService<HttpClient>(), apiUrl));
-
-        services.AddSingleton<ChatClientFactory>();
     }
 }

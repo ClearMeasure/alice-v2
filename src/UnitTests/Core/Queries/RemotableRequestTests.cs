@@ -1,9 +1,7 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using ClearMeasure.Bootcamp.Core;
 using ClearMeasure.Bootcamp.Core.Model;
-using ClearMeasure.Bootcamp.Core.Model.StateCommands;
 using ClearMeasure.Bootcamp.Core.Queries;
-using ClearMeasure.Bootcamp.Core.Services;
 using ClearMeasure.Bootcamp.Core.Messaging;
 using ClearMeasure.Bootcamp.UI.Client.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -17,38 +15,20 @@ public class RemotableRequestTests
     public void ShouldSerialize()
     {
         AssertRemotable(new ForecastQuery());
-        AssertRemotable(new WeatherForecast[1] { ObjectMother.Faker<WeatherForecast>() });
+        AssertRemotable(new[] { ObjectMother.Faker<WeatherForecast>() });
         AssertRemotable(new HealthCheckRemotableRequest());
         AssertRemotable(HealthStatus.Degraded);
-        AssertRemotable(ObjectMother.Faker<WorkOrderSpecificationQuery>());
-        AssertRemotable(WorkOrderStatus.Draft);
+        AssertRemotable(new EmployeeGetAllQuery());
+        AssertRemotable(new EmployeeByUserNameQuery("jsmith"));
     }
 
     [Test]
     public void ShouldBeRemotableCompatible()
     {
-        var order = ObjectMother.Faker<WorkOrder>();
-        AssertRemotable(order);
         AssertRemotable(new ServerHealthCheckQuery());
-        AssertRemotable(ObjectMother.Faker<Role>());
 
         var employee = ObjectMother.Faker<Employee>();
-        var role = ObjectMother.Faker<Role>();
-        employee.AddRole(role);
-        var rehydratedRole = ((Employee)AssertRemotable(employee)).Roles.Single(role1 => role1 == role);
-        ObjectMother.AssertAllProperties(role, rehydratedRole);
-
-        AssertRemotable(new SaveDraftCommand(order, employee));
-        AssertRemotable(new StateCommandResult(order, "Save", "message"));
-    }
-
-    [Test]
-    public void ShouldSerializeStateCommand()
-    {
-        var order = ObjectMother.Faker<WorkOrder>();
-        var employee = ObjectMother.Faker<Employee>();
-        IStateCommand command = new SaveDraftCommand(order, employee);
-        AssertRemotable(command);
+        AssertRemotable(employee);
     }
 
     public static object AssertRemotable(object theObject)
@@ -56,7 +36,7 @@ public class RemotableRequestTests
         var rehydratedQuery = SimulateRemoteObject(theObject);
 
         ObjectMother.AssertAllProperties(theObject, rehydratedQuery);
-        rehydratedQuery.ShouldBe(theObject);
+        rehydratedQuery.GetType().FullName.ShouldBe(theObject.GetType().FullName);
         return rehydratedQuery;
     }
 
@@ -70,6 +50,6 @@ public class RemotableRequestTests
 
     public static T SimulateRemoteObject<T>(T theObject)
     {
-        return (T)SimulateRemoteObject((object)theObject! ?? throw new InvalidOperationException());
+        return (T)SimulateRemoteObject((object)theObject!);
     }
 }

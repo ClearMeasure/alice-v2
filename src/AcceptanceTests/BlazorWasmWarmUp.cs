@@ -1,10 +1,5 @@
 namespace ClearMeasure.Bootcamp.AcceptanceTests;
 
-/// <summary>
-/// Warms up the Blazor WebAssembly application by loading the home page in a headless browser,
-/// detecting JavaScript errors or stuck loading screens, and reloading until the LoginLink is visible.
-/// This ensures the WASM payload is fully downloaded and initialized before parallel tests begin.
-/// </summary>
 public class BlazorWasmWarmUp
 {
     private const int MaxAttempts = 5;
@@ -19,10 +14,6 @@ public class BlazorWasmWarmUp
         _baseUrl = baseUrl;
     }
 
-    /// <summary>
-    /// Loads the home page in a disposable headless browser, retrying on JavaScript errors
-    /// or stuck loading screens until the LoginLink element is visible.
-    /// </summary>
     public async Task ExecuteAsync()
     {
         TestContext.Out.WriteLine("Blazor WASM warm-up: starting...");
@@ -40,7 +31,6 @@ public class BlazorWasmWarmUp
         context.SetDefaultTimeout(TimeoutSeconds * 1000);
 
         var page = await context.NewPageAsync();
-
         var jsErrors = new List<string>();
         page.PageError += (_, error) => jsErrors.Add(error);
 
@@ -52,16 +42,16 @@ public class BlazorWasmWarmUp
             await page.GotoAsync("/");
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 
-            var loginLink = page.GetByTestId("LoginLink");
+            var shell = page.GetByTestId("ApplicationSkeleton");
             try
             {
-                await loginLink.WaitForAsync(new LocatorWaitForOptions
+                await shell.WaitForAsync(new LocatorWaitForOptions
                 {
                     State = WaitForSelectorState.Visible,
                     Timeout = TimeoutSeconds * 1000
                 });
 
-                TestContext.Out.WriteLine("Blazor WASM warm-up: LoginLink visible — app is ready.");
+                TestContext.Out.WriteLine("Blazor WASM warm-up: application skeleton visible — app is ready.");
                 await page.CloseAsync();
                 await context.CloseAsync();
                 return;
@@ -69,8 +59,7 @@ public class BlazorWasmWarmUp
             catch (TimeoutException)
             {
                 TestContext.Out.WriteLine(
-                    $"Blazor WASM warm-up: LoginLink not visible after {TimeoutSeconds}s. " +
-                    $"JS errors captured: {jsErrors.Count}");
+                    $"Blazor WASM warm-up: application skeleton not visible after {TimeoutSeconds}s. JS errors captured: {jsErrors.Count}");
                 foreach (var error in jsErrors)
                 {
                     TestContext.Out.WriteLine($"  JS error: {error}");
@@ -78,7 +67,6 @@ public class BlazorWasmWarmUp
 
                 if (attempt < MaxAttempts)
                 {
-                    TestContext.Out.WriteLine("Blazor WASM warm-up: reloading page...");
                     await page.ReloadAsync();
                     await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
                 }
@@ -87,8 +75,6 @@ public class BlazorWasmWarmUp
 
         await page.CloseAsync();
         await context.CloseAsync();
-        TestContext.Out.WriteLine(
-            $"WARNING: Blazor WASM warm-up did not confirm LoginLink after {MaxAttempts} attempts. " +
-            "Tests will proceed but may encounter loading issues.");
+        TestContext.Out.WriteLine("WARNING: Blazor WASM warm-up did not confirm the application skeleton before tests continued.");
     }
 }
