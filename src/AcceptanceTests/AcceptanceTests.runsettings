@@ -3,13 +3,7 @@
   <NUnit>
     <NumberOfTestWorkers>8</NumberOfTestWorkers>
   </NUnit>
-  <LoggerRunSettings>
-    <Loggers>
-      <Logger friendlyName="console" enabled="True">
-        <Configuration>
-          <Verbosity>normal</Verbosity>
-        </Configuration>
-      </Logger>
-    </Loggers>
-  </LoggerRunSettings>
+  <!-- Do not add LoggerRunSettings/console here: dotnet test already attaches a
+       console logger; a second one in runsettings duplicates every line (NUnit
+       adapter, "Running all tests", etc.). Use -v on the dotnet test invocation instead. -->
 </RunSettings>

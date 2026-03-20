@@ -1,7 +1,7 @@
 CREATE TABLE [dbo].[Employee]
 (
     [Id] UNIQUEIDENTIFIER NOT NULL,
-    [UserName] NVARCHAR(100) NOT NULL,
+    [UserName] NVARCHAR(50) NOT NULL,
     [FullName] NVARCHAR(200) NOT NULL,
     CONSTRAINT [PK_Employee] PRIMARY KEY ([Id])
 )

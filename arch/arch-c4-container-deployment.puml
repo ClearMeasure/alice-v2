@@ -12,7 +12,7 @@ title Container diagram
 
 Person(user, "Church Staff", "Pastor, volunteer, or leader")
 
-System_Boundary(system, "Church Bulletin") {
+System_Boundary(system, "AI Software Factory") {
     Container(ui, "Blazor WASM Client", "Blazor WebAssembly", "Interactive browser application")
     Container(server, "UI Server", "ASP.NET / Azure Container App", "Hosts API, Blazor Server, MCP endpoint")
     Container(worker, "Worker", ".NET Worker Service", "NServiceBus endpoint for async processing")

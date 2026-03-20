@@ -4,11 +4,11 @@ Icons: [Tabler](https://icones.js.org/collection/tabler) via [icones.js.org](htt
 
 ```mermaid
 C4Component
-  title Church Bulletin Component diagram
+  title AI Software Factory Component diagram
 
   ContainerDb(database, "Database", "SQL Server", "Transactional data store", "tabler:database")
 
-  Container_Boundary(visualstudiosolution, "ChurchBulletin.sln") {
+  Container_Boundary(visualstudiosolution, "AISoftwareFactory.sln") {
     Component(core, "Core", "Class Library / net10.0", "Domain model, interfaces, queries - inner onion layer", "tabler:package")
     Component(dataAccess, "DataAccess", "Class Library / net10.0", "EF Core DbContext, MediatR handlers, NServiceBus messaging", "tabler:database")
     Component(databaseProject, "Database", "Console App / net10.0", "DbUp schema migrations", "tabler:schema")

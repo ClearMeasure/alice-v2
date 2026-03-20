@@ -32,7 +32,7 @@ Icons are specified in C4 elements via the optional `sprite` parameter (e.g. `"t
 
 | File | Diagram type | Description |
 |------|--------------|-------------|
-| `arch-c4-system.md` | C4Context | Church Bulletin system context |
+| `arch-c4-system.md` | C4Context | AI Software Factory system context |
 | `arch-c4-container-deployment.md` | C4Container | Containers (DB, app, UI) |
 | `arch-c4-component-project-dependencies.md` | C4Component | Solution/project structure |
 | `arch-c4-class-domain-model.md` | C4Component | Work order domain model |

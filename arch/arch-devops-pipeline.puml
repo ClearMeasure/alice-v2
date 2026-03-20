@@ -3,7 +3,7 @@
 
 LAYOUT_LEFT_RIGHT()
 
-title Church Bulletin DevOps Pipeline
+title AI Software Factory DevOps Pipeline
 
 Person(dev, "Developer", "Initiates code changes")
 

@@ -7,10 +7,10 @@ if ($env:ConnectionStrings__SqlConnectionString -and -not (Test-IsGitHubActions)
 	[Environment]::SetEnvironmentVariable("ConnectionStrings__SqlConnectionString", $null, "User")
 }
 
-$projectName = "ChurchBulletin"
+$projectName = "AISoftwareFactory"
 $base_dir = resolve-path .\
 $source_dir = Join-Path $base_dir "src"
-$solutionName = Join-Path $source_dir "$projectName.sln"
+$solutionName = Join-Path $source_dir "AISoftwareFactory.sln"
 $unitTestProjectPath = Join-Path $source_dir "UnitTests"
 $integrationTestProjectPath = Join-Path $source_dir "IntegrationTests"
 $acceptanceTestProjectPath = Join-Path $source_dir "AcceptanceTests"
@@ -26,7 +26,7 @@ $build_dir = Join-Path $base_dir "build"
 $test_dir = Join-Path $build_dir "test"
 
 $databaseAction = $env:DatabaseAction
-if ([string]::IsNullOrEmpty($databaseAction)) { $databaseAction = "Update" }
+if ([string]::IsNullOrEmpty($databaseAction)) { $databaseAction = "Rebuild" }
 
 if (Test-IsArmArchitecture) {
 	$env:database_engine = "SQLite"
@@ -98,7 +98,7 @@ Function Compile {
 			/p:MSBuildTreatAllWarningsAsErrors="true" `
 			/p:SuppressNETCoreSdkPreviewMessage=true `
 			/p:Version=$version /p:Authors="Programming with Palermo" `
-			/p:Product="Church Bulletin"
+			/p:Product="AI Software Factory"
 	}
 }
 

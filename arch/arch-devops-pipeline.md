@@ -1,4 +1,4 @@
-# Church Bulletin DevOps Pipeline
+# AI Software Factory DevOps Pipeline
 
 This diagram models the end-to-end delivery pipeline from local development through production deployment.
 
@@ -18,7 +18,7 @@ This diagram models the end-to-end delivery pipeline from local development thro
 
 ```mermaid
 C4Deployment
-  title Church Bulletin DevOps Pipeline
+  title AI Software Factory DevOps Pipeline
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 
   Deployment_Node(local, "Developer Workstation", "Local machine") {

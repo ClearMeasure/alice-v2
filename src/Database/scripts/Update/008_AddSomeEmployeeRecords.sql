@@ -1,6 +1,0 @@
-INSERT INTO [dbo].[Employee] ([Id], [UserName], [FullName]) VALUES ('455910c9-8c84-41b7-a4ae-9a5e00980f2e', N'jpalermo', N'Jeffrey Palermo')
-GO
-INSERT INTO [dbo].[Employee] ([Id], [UserName], [FullName]) VALUES ('47df75b4-788e-4e88-b3aa-9a5e00980f33', N'sspaniel', N'Sean Spaniel')
-GO
-INSERT INTO [dbo].[Employee] ([Id], [UserName], [FullName]) VALUES ('b87e5281-0fe0-4ee1-9d0b-9a5e00980f33', N'hsimpson', N'Homer Simpson')
-GO

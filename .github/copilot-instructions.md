@@ -6,7 +6,7 @@ This file provides standards for GitHub Copilot to follow when generating code f
 
 **Stack:** .NET 10.0 | Blazor WASM + Server | EF Core 10 | SQL Server | Onion Architecture | Aspire
 
-**Solution:** `src/ChurchBulletin.sln` — Core, DataAccess, Database, UI.Server, UI.Client, UI.Api, UI.Shared, LlmGateway, ChurchBulletin.AppHost, ChurchBulletin.ServiceDefaults, Worker, UnitTests, IntegrationTests, AcceptanceTests.
+**Solution:** `src/AISoftwareFactory.sln` — Core, DataAccess, Database, UI.Server, UI.Client, UI.Api, UI.Shared, LlmGateway, ChurchBulletin.AppHost, ChurchBulletin.ServiceDefaults, Worker, UnitTests, IntegrationTests, AcceptanceTests.
 
 **Key Paths:**
 - Domain models: `src/Core/` (WorkOrder, Employee, WorkOrderStatus, Role)
@@ -17,12 +17,6 @@ This file provides standards for GitHub Copilot to follow when generating code f
 - Worker service: `src/Worker/` (hosted endpoint worker)
 - DB migrations: `src/Database/scripts/Update/` (DbUp scripts, numbered ###_Name.sql, TABS)
 - Tests: `src/UnitTests/`, `src/IntegrationTests/`, `src/AcceptanceTests/`
-
-**Domain Model:**
-- `WorkOrder`: Number, Title, Description, RoomNumber, Assignee (Employee), Status, Creator (Employee), AssignedDate, CreatedDate, CompletedDate
-- `Employee`: UserName, FirstName, LastName, EmailAddress, Roles
-- `WorkOrderStatus`: Draft, Assigned, InProgress, Complete, Cancelled
-- `Role`: Name, CanCreateWorkOrder, CanFulfillWorkOrder
 
 **Architecture Rules (Strict):**
 - Core → no dependencies (domain models, interfaces, queries)
@@ -46,7 +40,7 @@ This file provides standards for GitHub Copilot to follow when generating code f
 
 ## Project Overview
 
-This is a Work Order management application built with:
+This is a application built with:
 - **.NET 10.0** - Primary framework
 - **Blazor** - UI framework (WebAssembly + Server)
 - **Entity Framework Core 10** - Data access
@@ -71,8 +65,8 @@ Build the project using PowerShell:
 
 Or using .NET CLI:
 ```bash
-dotnet restore src/ChurchBulletin.sln
-dotnet build src/ChurchBulletin.sln --configuration Release
+dotnet restore src/AISoftwareFactory.sln
+dotnet build src/AISoftwareFactory.sln --configuration Release
 ```
 
 ## Test Instructions
@@ -132,7 +126,7 @@ All branches must be created inside a folder matching the username of the accoun
 
 ## Special Project Rules
 
-- **DO NOT** modify files in `.octopus/`, `.octopus_original_from_od/`, or build scripts without explicit approval
+- **DO NOT** modify files in `.octopus/`, or build scripts without explicit approval
 - **DO NOT** add new NuGet packages without approval
 - **DO NOT** upgrade .NET SDK version without approval (currently 10.0.x)
 - **ALWAYS** include unit tests for new functionality

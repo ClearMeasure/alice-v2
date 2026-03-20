@@ -8,7 +8,7 @@ C4Container
 
   Person(user, "Church Staff", "Pastor, volunteer, or leader", "tabler:user")
 
-  System_Boundary(system, "Church Bulletin") {
+  System_Boundary(system, "AI Software Factory") {
     Container(ui, "Blazor WASM Client", "Blazor WebAssembly", "Interactive browser application", "tabler:app-window")
     Container(server, "UI Server", "ASP.NET / Azure Container App", "Hosts API, Blazor Server, MCP endpoint", "tabler:server")
     Container(worker, "Worker", ".NET Worker Service", "NServiceBus endpoint for async processing", "tabler:settings-automation")

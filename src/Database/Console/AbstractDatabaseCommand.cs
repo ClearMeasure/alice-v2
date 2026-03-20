@@ -22,7 +22,10 @@ public abstract class AbstractDatabaseCommand(string action) : Command<DatabaseO
         var connectionString = GetConnectionString(options);
         try
         {
-            EnsureDatabase.For.SqlDatabase(connectionString, new QuietLog());
+            if (EnsureDatabaseExistsBeforeExecute())
+            {
+                EnsureDatabase.For.SqlDatabase(connectionString, new QuietLog());
+            }
         }
         catch (Exception ex)
         {
@@ -113,6 +116,23 @@ public abstract class AbstractDatabaseCommand(string action) : Command<DatabaseO
 
 
 
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// When <see langword="true"/>, the target database is created if missing before <see cref="ExecuteInternal"/> runs.
+    /// </summary>
+    protected virtual bool EnsureDatabaseExistsBeforeExecute() => true;
+
+    /// <summary>
+    /// Connection string to <c>master</c> using the same server and credentials as <see cref="GetConnectionString"/>.
+    /// </summary>
+    protected static string GetMasterConnectionString(DatabaseOptions options)
+    {
+        var builder = new SqlConnectionStringBuilder(GetConnectionString(options))
+        {
+            InitialCatalog = "master"
+        };
         return builder.ToString();
     }
 

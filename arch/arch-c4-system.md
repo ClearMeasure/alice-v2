@@ -1,10 +1,10 @@
-# Church Bulletin System Diagram
+# AI Software Factory System Diagram
 
 Icons use the [Tabler](https://icones.js.org/collection/tabler) pack from [icones.js.org](https://icones.js.org/). To render with icons, [register the icon pack](https://mermaid.js.org/config/icons.html) (e.g. `@iconify-json/tabler`, name `tabler`).
 
 ```mermaid
 C4Context
-  title Church Bulletin System Diagram
+  title AI Software Factory System Diagram
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 
   Person(pastor, "Senior Pastor", "Any clergy leader", "tabler:user")
@@ -13,7 +13,7 @@ C4Context
   Person(childrenspastor, "Childrens' Pastor", "Kids ministry", "tabler:brand-apple-arcade")
   Person(volunteer, "Volunteer", "Prepares bulletins and projects announcements", "tabler:hand-stop")
 
-  System(churchbulletin, "Church Bulletin", "Digital signage and printed bulletin", "tabler:news")
+  System(churchbulletin, "AI Software Factory", "Digital signage and printed bulletin", "tabler:news")
 
   System_Ext(printer, "Printer", "", "tabler:printer")
   System_Ext(projector, "Projector", "", "tabler:device-tv")
