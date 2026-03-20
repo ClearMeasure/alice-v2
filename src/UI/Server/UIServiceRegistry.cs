@@ -1,9 +1,11 @@
 using ClearMeasure.Bootcamp.Core;
+using ClearMeasure.Bootcamp.Core.Services;
 using ClearMeasure.Bootcamp.DataAccess;
 using ClearMeasure.Bootcamp.DataAccess.Mappings;
 using ClearMeasure.Bootcamp.LlmGateway;
 using ClearMeasure.Bootcamp.McpServer;
 using ClearMeasure.Bootcamp.UI.Api;
+using ClearMeasure.Bootcamp.UI.Api.Webhooks;
 using ClearMeasure.Bootcamp.UI.Shared;
 using Lamar;
 using MediatR;
@@ -16,6 +18,7 @@ public class UiServiceRegistry : ServiceRegistry
     public UiServiceRegistry()
     {
         this.AddScoped<DbContext, DataContext>();
+        this.AddTransient<IWorkItemWebhookTranslator, GitHubProjectsV2WebhookTranslator>();
 
         this.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<UiServiceRegistry>());
         this.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<HealthCheck>());

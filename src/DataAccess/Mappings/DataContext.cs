@@ -34,9 +34,8 @@ public class DataContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         new EmployeeMap().Map(modelBuilder);
-        new FactoryWorkItemMap().Map(modelBuilder);
-        new WorkerAgentMap().Map(modelBuilder);
-        new DashboardMetricSnapshotMap().Map(modelBuilder);
+        new WorkItemEventMap().Map(modelBuilder);
+        new WorkItemStateMap().Map(modelBuilder);
     }
 
     public sealed override string ToString()

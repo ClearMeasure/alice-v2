@@ -1,36 +1,49 @@
 using ClearMeasure.Bootcamp.Core;
-using ClearMeasure.Bootcamp.Core.Interfaces;
+using ClearMeasure.Bootcamp.Core.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClearMeasure.Bootcamp.UI.Api.Controllers;
 
 /// <summary>
-/// Receives webhook payloads from external systems and translates them into factory events
+/// Receives webhooks from external board systems and dispatches work item tracking commands.
 /// </summary>
 [ApiController]
-[Route("api/webhooks")]
-public class WebhookController(IBus bus, IEnumerable<IWebhookTranslator> translators) : ControllerBase
+[Route("webhook")]
+public class WebhookController(
+    IEnumerable<IWorkItemWebhookTranslator> translators,
+    IBus bus,
+    ILogger<WebhookController> logger) : ControllerBase
 {
     /// <summary>
-    /// Receives a webhook payload from an external system
+    /// Receives a webhook payload from the specified source system.
     /// </summary>
-    /// <param name="system">The external system identifier (e.g., github, azdo, jira)</param>
-    [HttpPost("{system}")]
-    public async Task<IActionResult> Post(string system)
+    [HttpPost("{source}")]
+    public async Task<IActionResult> Receive(string source, [FromBody] object payload)
     {
-        using var reader = new StreamReader(Request.Body);
-        var payload = await reader.ReadToEndAsync();
+        var rawPayload = payload.ToString() ?? string.Empty;
 
-        foreach (var translator in translators)
+        logger.LogInformation("Webhook received from {Source}", source);
+
+        var translator = translators
+            .FirstOrDefault(t => string.Equals(t.Source, source, StringComparison.OrdinalIgnoreCase)
+                                 && t.CanHandle(rawPayload));
+
+        if (translator is null)
         {
-            var factoryEvent = translator.Translate(system, payload);
-            if (factoryEvent != null)
-            {
-                await bus.Publish(factoryEvent);
-                return Ok(new { status = "accepted", eventType = factoryEvent.EventType.Code });
-            }
+            logger.LogWarning("No translator found for source {Source}", source);
+            return Ok(new { status = "ignored", reason = "no matching translator" });
         }
 
-        return BadRequest(new { status = "unrecognized", system });
+        var command = translator.Translate(rawPayload);
+        if (command is null)
+        {
+            logger.LogInformation("Webhook from {Source} translated to no-op", source);
+            return Ok(new { status = "ignored", reason = "event not tracked" });
+        }
+
+        var eventId = await bus.Send(command);
+        logger.LogInformation("Work item event {EventId} recorded from {Source}", eventId, source);
+
+        return Ok(new { status = "recorded", eventId });
     }
 }
