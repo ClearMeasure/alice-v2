@@ -1,0 +1,97 @@
+@page "/factory-dashboard"
+@using ClearMeasure.Bootcamp.Core
+@using ClearMeasure.Bootcamp.Core.Model.Factory
+@using ClearMeasure.Bootcamp.Core.Queries.Factory
+
+<style>
+    .metric-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 8px;
+        display: inline-block;
+        min-width: 200px;
+    }
+    .metric-value {
+        font-size: 2em;
+        font-weight: bold;
+    }
+    .trend-up { color: green; }
+    .trend-down { color: red; }
+    .trend-stable { color: gray; }
+    .category-section {
+        margin-bottom: 24px;
+    }
+    .scorecard {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+</style>
+
+<h3>AI Software Factory Dashboard</h3>
+
+@if (_loading)
+{
+    <p>Loading metrics...</p>
+}
+else
+{
+    <div class="category-section">
+        <h4>Scorecard</h4>
+        <div class="scorecard" data-testid="scorecard">
+            @foreach (var score in _scores)
+            {
+                <div class="metric-card">
+                    <div>@score.Category</div>
+                    <div class="metric-value">@score.Score.ToString("F1")</div>
+                    <div class="@GetTrendClass(score.Trend)">@GetTrendIcon(score.Trend)</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="category-section">
+        <h4>Week over Week Metrics</h4>
+        <div data-testid="metrics-list">
+            @foreach (var metric in _metrics)
+            {
+                <div class="metric-card">
+                    <div>@metric.MetricName</div>
+                    <div class="metric-value">@metric.Value.ToString("F2")</div>
+                    <div>@metric.Category</div>
+                    <div class="@GetTrendClass(metric.Trend)">@GetTrendIcon(metric.Trend)</div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private IEnumerable<DashboardMetric> _metrics = Array.Empty<DashboardMetric>();
+    private IEnumerable<CategoryScore> _scores = Array.Empty<CategoryScore>();
+
+    [Inject] public IBus Bus { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _metrics = await Bus.Send(new WeekOverWeekMetricsQuery());
+        _scores = await Bus.Send(new ScoreCardQuery());
+        _loading = false;
+    }
+
+    private static string GetTrendClass(TrendDirection trend) => trend switch
+    {
+        TrendDirection.Up => "trend-up",
+        TrendDirection.Down => "trend-down",
+        _ => "trend-stable"
+    };
+
+    private static string GetTrendIcon(TrendDirection trend) => trend switch
+    {
+        TrendDirection.Up => "^ Up",
+        TrendDirection.Down => "v Down",
+        _ => "- Stable"
+    };
+}
