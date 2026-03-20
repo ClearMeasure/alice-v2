@@ -1,0 +1,68 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="exclude-maui.slnf" />
+    <BuildType Name="Release" />
+    <Platform Name="Any CPU" />
+    <Platform Name="ARM" />
+    <Platform Name="ARM64" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/arch/">
+    <File Path="../arch/arch-c4-class-domain-model.md" />
+    <File Path="../arch/arch-c4-class-domain-model.puml" />
+    <File Path="../arch/arch-c4-component-project-dependencies.md" />
+    <File Path="../arch/arch-c4-component-project-dependencies.puml" />
+    <File Path="../arch/arch-c4-container-deployment.md" />
+    <File Path="../arch/arch-c4-container-deployment.puml" />
+    <File Path="../arch/arch-c4-system.md" />
+    <File Path="../arch/arch-c4-system.puml" />
+    <File Path="../arch/PlantUMLSetup.ps1" />
+    <File Path="../arch/SolutionStructure.png" />
+    <File Path="../arch/WorflowForAssignedToInProgressCommand.md" />
+    <File Path="../arch/WorflowForDraftToAssignedCommand.md" />
+    <File Path="../arch/WorflowForInProgressToCompleteCommand.md" />
+    <File Path="../arch/WorflowForSaveDraftCommand.md" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="../.github/copilot-instructions.md" />
+    <File Path="../AcceptanceTests.ps1" />
+    <File Path="../build.bat" />
+    <File Path="../build.ps1" />
+    <File Path="../BuildFunctions.ps1" />
+    <File Path="../click_to_build.bat" />
+    <File Path="../Dockerfile" />
+    <File Path="../global.json" />
+    <File Path="../PrivateBuild.ps1" />
+    <File Path="../README.md" />
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="AcceptanceTests/AcceptanceTests.csproj" />
+  <Project Path="AppHost/AppHost.csproj">
+    <BuildType Solution="exclude-maui.slnf|*" Project="Release" />
+  </Project>
+  <Project Path="Core/Core.csproj" />
+  <Project Path="DataAccess/DataAccess.csproj" />
+  <Project Path="Database/Database.csproj" />
+  <Project Path="IntegrationTests/IntegrationTests.csproj" />
+  <Project Path="LlmGateway/LlmGateway.csproj">
+    <BuildType Solution="exclude-maui.slnf|*" Project="Release" />
+  </Project>
+  <Project Path="McpServer/McpServer.csproj">
+    <BuildType Solution="exclude-maui.slnf|*" Project="Debug" />
+  </Project>
+  <Project Path="ServiceDefaults/ServiceDefaults.csproj">
+    <BuildType Solution="exclude-maui.slnf|*" Project="Release" />
+  </Project>
+  <Project Path="UI.Shared/UI.Shared.csproj">
+    <BuildType Solution="exclude-maui.slnf|*" Project="Release" />
+  </Project>
+  <Project Path="UI/Api/UI.Api.csproj" />
+  <Project Path="UI/Client/UI.Client.csproj" />
+  <Project Path="UI/Server/UI.Server.csproj" />
+  <Project Path="UnitTests/UnitTests.csproj" />
+  <Project Path="Worker/Worker.csproj">
+    <BuildType Solution="exclude-maui.slnf|*" Project="Debug" />
+  </Project>
+</Solution>

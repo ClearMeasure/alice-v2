@@ -1,4 +1,4 @@
-# Cursor Rules for ChurchBulletin Work Order Management System
+# Cursor Rules for AI Software Factory
 
 ## Project Overview
 Work Order management system built with .NET 9.0, implementing Onion Architecture with Blazor WebAssembly UI, Entity Framework Core for data access, and deployed to Azure Container Apps.

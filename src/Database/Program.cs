@@ -4,7 +4,7 @@ using Spectre.Console.Cli;
 var app = new CommandApp();
 app.Configure(config =>
 {
-    config.SetApplicationName("ChurchBulletin.Database");
+    config.SetApplicationName("AISoftwareFactory.Database");
     config.CaseSensitivity(CaseSensitivity.None); // Command names are case-insensitive
 
     config.AddCommand<BaselineDatabaseCommand>("baseline")
