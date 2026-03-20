@@ -3,7 +3,7 @@ namespace ClearMeasure.Bootcamp.AcceptanceTests.App;
 [TestFixture]
 public class LandingPageTests : AcceptanceTestBase
 {
-    [Test, Retry(2), Explicit]
+    [Test, Retry(2)]
     public async Task Should_DisplayApplicationSkeletonPlaceholder()
     {
         await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
