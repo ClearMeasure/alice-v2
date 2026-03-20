@@ -8,7 +8,6 @@ using ClearMeasure.Bootcamp.UI.Shared;
 using Lamar;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using FunJeffreyCustomEventHealthCheck = ClearMeasure.Bootcamp.UI.Shared.FunJeffreyCustomEventHealthCheck;
 
 namespace ClearMeasure.Bootcamp.UI.Server;
 
@@ -33,7 +32,6 @@ public class UiServiceRegistry : ServiceRegistry
             scanner.AssemblyContainingType<HealthCheck>();
             scanner.AssemblyContainingType<Is64BitProcessHealthCheck>();
             scanner.AssemblyContainingType<CanConnectToLlmServerHealthCheck>();
-            scanner.AssemblyContainingType<FunJeffreyCustomEventHealthCheck>();
             scanner.AssemblyContainingType<ToolProvider>();
             scanner.ConnectImplementationsToTypesClosing(typeof(IRequestHandler<,>));
             scanner.ConnectImplementationsToTypesClosing(typeof(INotificationHandler<>));
@@ -43,7 +41,6 @@ public class UiServiceRegistry : ServiceRegistry
             .AddCheck<CanConnectToLlmServerHealthCheck>("LlmGateway")
             .AddCheck<CanConnectToDatabaseHealthCheck>("DataAccess")
             .AddCheck<Is64BitProcessHealthCheck>("Server")
-            .AddCheck<HealthCheck>("API")
-            .AddCheck<FunJeffreyCustomEventHealthCheck>("Jeffrey");
+            .AddCheck<HealthCheck>("API");
     }
 }

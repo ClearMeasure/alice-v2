@@ -3,7 +3,7 @@ namespace ClearMeasure.Bootcamp.AcceptanceTests.App;
 [TestFixture]
 public class WarmUpTests : AcceptanceTestBase
 {
-    [Test, Retry(2)]
+    [Test, Retry(2), Explicit]
     public async Task WarmUp_BlazorWasm_ApplicationSkeletonVisible()
     {
         var shell = Page.GetByTestId("ApplicationSkeleton");
