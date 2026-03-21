@@ -29,7 +29,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\ChurchBulletin.ServiceDefaults\ChurchBulletin.ServiceDefaults.csproj" />
+		<ProjectReference Include="..\..\ServiceDefaults\ServiceDefaults.csproj" />
 		<ProjectReference Include="..\..\Core\Core.csproj" />
 		<ProjectReference Include="..\..\DataAccess\DataAccess.csproj" />
 		<ProjectReference Include="..\..\LlmGateway\LlmGateway.csproj" />

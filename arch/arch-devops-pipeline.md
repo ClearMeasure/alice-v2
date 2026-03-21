@@ -39,7 +39,7 @@ C4Deployment
         Container(at_arm, "Acceptance Tests (ARM)", "Playwright + SQLite", "Invoke-AcceptanceTests -UseSqlite")
       }
       Deployment_Node(publish, "Publish", "needs: build-linux") {
-        Container(docker_acr, "Docker Build to ACR", "churchbulletingithubacr.azurecr.io", "Build and push container image")
+        Container(docker_acr, "Docker Build to ACR", "aisoftwarefactorygithubacr.azurecr.io", "Build and push container image")
         Container(gh_packages, "GitHub Packages", "nuget.pkg.github.com", "Publish NuGet packages")
         Container(octo_push, "Octopus Feed", "dotnet-octo push", "Publish NuGet packages to Octopus built-in feed")
       }
@@ -64,7 +64,7 @@ C4Deployment
 
   Deployment_Node(octopus, "Octopus Deploy", "Deployment server, per environment") {
     Container(octo_dotnet, "Ensure .NET 10", "PowerShell", "Check/install .NET 10 runtime on hosted Windows worker")
-    Container(octo_db, "Run DB Migrations", "DbUp", "Execute migration scripts from ChurchBulletin.Database package")
+    Container(octo_db, "Run DB Migrations", "DbUp", "Execute migration scripts from AISoftwareFactory.Database package")
     Container(octo_app, "Update Container App", "Azure CLI", "az containerapp update, new image + connection string")
   }
 
@@ -124,10 +124,10 @@ acceptancetests.ps1 → Invoke-AcceptanceTests()
                         └── AcceptanceTests() — Playwright
 
 CI Build (build.yml) → Build() + Package-Everything()
-                                    ├── PackageUI()              → ChurchBulletin.UI.nupkg
-                                    ├── PackageDatabase()        → ChurchBulletin.Database.nupkg
-                                    ├── PackageAcceptanceTests() → ChurchBulletin.AcceptanceTests.nupkg
-                                    └── PackageScript()          → ChurchBulletin.Script.nupkg
+                                    ├── PackageUI()              → AISoftwareFactory.UI.nupkg
+                                    ├── PackageDatabase()        → AISoftwareFactory.Database.nupkg
+                                    ├── PackageAcceptanceTests() → AISoftwareFactory.AcceptanceTests.nupkg
+                                    └── PackageScript()          → AISoftwareFactory.Script.nupkg
 ```
 
 ## Octopus Deployment Process
@@ -137,7 +137,7 @@ Each environment (TDD, UAT, Prod) executes the same deployment process defined i
 | Step | Name | Description |
 |------|------|-------------|
 | 1 | Ensure .NET 10 installed | Checks/installs .NET 10 runtime on hosted Windows worker |
-| 2 | Run DB migrations | Executes DbUp scripts from `ChurchBulletin.Database` package |
+| 2 | Run DB migrations | Executes DbUp scripts from `AISoftwareFactory.Database` package |
 | 3 | Add Revision to Container App | `az containerapp update` with new container image + connection string |
 
 ## Key Design Principles

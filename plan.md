@@ -18,7 +18,7 @@ Host the MCP HTTP transport inside the existing UI.Server process at route `/mcp
   builder.Services
       .AddMcpServer(options =>
       {
-          options.ServerInfo = new() { Name = "ChurchBulletin", Version = "1.0.0" };
+          options.ServerInfo = new() { Name = "AISoftwareFactory", Version = "1.0.0" };
       })
       .WithHttpTransport()
       .WithTools<WorkOrderTools>()

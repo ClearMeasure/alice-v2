@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Work Order management system. .NET 10.0, Onion Architecture, Blazor WebAssembly + Server UI, EF Core 10, SQL Server, MediatR for CQRS, Lamar DI, deployed to Azure Container Apps.
 
-**Solution:** `src/AISoftwareFactory.sln`
+**Solution:** `src/AISoftwareFactory.slnx`
 
 ## Build and Test
 
@@ -15,7 +15,7 @@ Work Order management system. .NET 10.0, Onion Architecture, Blazor WebAssembly 
 . .\build.ps1 ; Build
 
 # Build only
-dotnet build src/AISoftwareFactory.sln --configuration Release
+dotnet build src/AISoftwareFactory.slnx --configuration Release
 
 # Unit tests
 dotnet test src/UnitTests --configuration Release

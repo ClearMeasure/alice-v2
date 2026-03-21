@@ -6,7 +6,7 @@ This file provides standards for GitHub Copilot to follow when generating code f
 
 **Stack:** .NET 10.0 | Blazor WASM + Server | EF Core 10 | SQL Server | Onion Architecture | Aspire
 
-**Solution:** `src/AISoftwareFactory.sln` — Core, DataAccess, Database, UI.Server, UI.Client, UI.Api, UI.Shared, LlmGateway, ChurchBulletin.AppHost, ChurchBulletin.ServiceDefaults, Worker, UnitTests, IntegrationTests, AcceptanceTests.
+**Solution:** `src/AISoftwareFactory.slnx` — Core, DataAccess, Database, UI.Server, UI.Client, UI.Api, UI.Shared, LlmGateway, AppHost, ServiceDefaults, Worker, UnitTests, IntegrationTests, AcceptanceTests.
 
 **Key Paths:**
 - Domain models: `src/Core/` (WorkOrder, Employee, WorkOrderStatus, Role)
@@ -65,8 +65,8 @@ Build the project using PowerShell:
 
 Or using .NET CLI:
 ```bash
-dotnet restore src/AISoftwareFactory.sln
-dotnet build src/AISoftwareFactory.sln --configuration Release
+dotnet restore src/AISoftwareFactory.slnx
+dotnet build src/AISoftwareFactory.slnx --configuration Release
 ```
 
 ## Test Instructions
@@ -212,7 +212,7 @@ All branches must be created inside a folder matching the username of the accoun
 - `[MethodName]_[Scenario]_[ExpectedResult]`
 - Examples:
   - `GetWorkOrder_WithValidId_ReturnsWorkOrder`
-  - `SaveChurchBulletin_WithMissingTitle_ThrowsValidationException`
+  - `SaveAISoftwareFactory_WithMissingTitle_ThrowsValidationException`
 
 ### Acceptance Tests from Issues (IMPORTANT for Copilot SWE Agent)
 

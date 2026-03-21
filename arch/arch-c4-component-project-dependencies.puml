@@ -12,7 +12,7 @@ title AI Software Factory Component diagram
 
 ContainerDb(database, "Database", "SQL Server", "Transactional data store")
 
-Container_Boundary(visualstudiosolution, "AISoftwareFactory.sln") {
+Container_Boundary(visualstudiosolution, "AISoftwareFactory.slnx") {
     Component(core, "Core", "Class Library / net10.0", "Domain model, interfaces, queries - inner onion layer")
     Component(dataAccess, "DataAccess", "Class Library / net10.0", "EF Core DbContext, MediatR handlers, NServiceBus messaging")
     Component(databaseProject, "Database", "Console App / net10.0", "DbUp schema migrations")

@@ -81,6 +81,7 @@ public static class TestHost
                 if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
                 {
                     var learningTransport = endpointConfiguration.UseTransport<LearningTransport>();
+                    learningTransport.StorageDirectory(Path.Combine(Path.GetTempPath(), "NServiceBus.Learning"));
                     learningTransport.Routing()
                         .RouteToEndpoint(typeof(TracerBulletCommand), WorkerEndpointName);
                 }
