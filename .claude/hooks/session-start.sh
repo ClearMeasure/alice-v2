@@ -37,20 +37,16 @@ else
 fi
 
 # ── Docker daemon ─────────────────────────────────────────────────────────────
-if ! docker info &>/dev/null 2>&1; then
-  echo "Starting Docker daemon..."
-  dockerd &>/tmp/dockerd.log &
-  # Wait up to 15 s for the socket
-  for i in $(seq 1 15); do
-    sleep 1
-    if docker info &>/dev/null 2>&1; then
-      echo "Docker daemon ready."
-      break
-    fi
-  done
-else
-  echo "Docker daemon already running."
-fi
+echo "Starting Docker daemon..."
+dockerd &>/tmp/dockerd.log &
+# Wait up to 15 s for the socket
+for i in $(seq 1 15); do
+  sleep 1
+  if docker info &>/dev/null 2>&1; then
+    echo "Docker daemon ready."
+    break
+  fi
+done
 
 # ── NuGet restore (warms package cache) ──────────────────────────────────────
 echo "Restoring NuGet packages..."
