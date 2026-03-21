@@ -99,11 +99,22 @@ Function UnitTests {
 	}
 }
 
-Function Setup-DatabaseForBuild {
-	Log-Message -Message "Starting AppHost-managed development environment..." -Type "INFO"
-	Start-AppHostEnvironment -DatabaseAction $databaseAction | Out-Null
+Function MigrateDatabaseLocal {
 	$env:ConnectionStrings__SqlConnectionString = Get-AppHostSqlConnectionString
 	Log-Message -Message "Using AppHost SQL connection string: $(Get-RedactedConnectionString -ConnectionString $env:ConnectionStrings__SqlConnectionString)" -Type "DEBUG"
+
+	$databaseAssemblyPath = Get-DatabaseAssemblyPath -Configuration $projectConfig -Framework $framework
+	if (-not (Test-Path $databaseAssemblyPath)) {
+		throw "Database assembly not found at $databaseAssemblyPath"
+	}
+
+	$sqlPort = Get-AppHostSqlPort
+	$databaseServer = "127.0.0.1,$sqlPort"
+
+	Log-Message -Message "Running database $databaseAction against AppHost SQL endpoint $databaseServer" -Type "INFO"
+	exec {
+		& dotnet $databaseAssemblyPath $databaseAction $databaseServer $script:databaseName $script:databaseScripts "sa" "aisoftwarefactory-mssql#1A"
+	} "Database migration failed."
 }
 
 Function IntegrationTest {
@@ -168,7 +179,10 @@ Function Build {
 		Init
 		Compile
 		UnitTests
-		Setup-DatabaseForBuild
+		Log-Message -Message "Starting AppHost-managed development environment ($databaseAction)..." -Type "INFO"
+		Start-AppHostEnvironment -DatabaseAction $databaseAction | Out-Null
+		$env:ConnectionStrings__SqlConnectionString = Get-AppHostSqlConnectionString
+		Log-Message -Message "Using AppHost SQL connection string: $(Get-RedactedConnectionString -ConnectionString $env:ConnectionStrings__SqlConnectionString)" -Type "DEBUG"
 		IntegrationTest
 	}
 	finally {
@@ -191,7 +205,10 @@ Function Invoke-CIBuild {
 		Init
 		Compile
 		UnitTests
-		Setup-DatabaseForBuild
+		Log-Message -Message "Starting AppHost-managed development environment ($databaseAction)..." -Type "INFO"
+		Start-AppHostEnvironment -DatabaseAction $databaseAction | Out-Null
+		$env:ConnectionStrings__SqlConnectionString = Get-AppHostSqlConnectionString
+		Log-Message -Message "Using AppHost SQL connection string: $(Get-RedactedConnectionString -ConnectionString $env:ConnectionStrings__SqlConnectionString)" -Type "DEBUG"
 		IntegrationTest
 	}
 	finally {
@@ -324,7 +341,9 @@ Function Invoke-AcceptanceTests {
 	try {
 		Init
 		Compile
-		Setup-DatabaseForBuild
+		Log-Message -Message "Starting AppHost-managed development environment ($databaseAction)..." -Type "INFO"
+		Start-AppHostEnvironment -DatabaseAction $databaseAction | Out-Null
+		$env:ConnectionStrings__SqlConnectionString = Get-AppHostSqlConnectionString
 		AcceptanceTests
 	}
 	finally {

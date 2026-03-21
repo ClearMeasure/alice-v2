@@ -227,6 +227,18 @@ Function Get-AppHostProjectPath {
     return Join-Path (Resolve-Path .\) "src\AppHost"
 }
 
+Function Get-DatabaseAssemblyPath {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$Configuration = "Release",
+
+        [Parameter(Mandatory = $false)]
+        [string]$Framework = "net10.0"
+    )
+
+    return Join-PathSegments (Resolve-Path .\) "src" "Database" "bin" $Configuration $Framework "ClearMeasure.Bootcamp.Database.dll"
+}
+
 Function Get-AppHostSqlConnectionString {
     $sqlPort = Get-AppHostSqlPort
     return "server=127.0.0.1,$sqlPort;database=AISoftwareFactory;User ID=sa;Password=aisoftwarefactory-mssql#1A;TrustServerCertificate=true;"
@@ -263,7 +275,7 @@ Function Test-AppHostHealthy {
 Function Start-AppHostEnvironment {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$DatabaseAction = "Rebuild"
+        [string]$DatabaseAction = "update"
     )
 
     if (Test-AppHostHealthy) {
@@ -283,14 +295,14 @@ Function Start-AppHostEnvironment {
     $previousDotnetEnvironment = $env:DOTNET_ENVIRONMENT
     $previousAspNetCoreEnvironment = $env:ASPNETCORE_ENVIRONMENT
     $previousDisableNgrokTunnel = $env:DISABLE_NGROK_TUNNEL
-    $previousDatabaseAction = $env:DatabaseAction
     $previousNgrokAuthToken = $env:NGROK_AUTHTOKEN
+    $previousDatabaseAction = $env:DatabaseAction
 
     $env:DOTNET_ENVIRONMENT = "Development"
     $env:ASPNETCORE_ENVIRONMENT = "Development"
     $env:DISABLE_NGROK_TUNNEL = "true"
-    $env:DatabaseAction = $DatabaseAction
     $env:NGROK_AUTHTOKEN = ""
+    $env:DatabaseAction = $DatabaseAction
 
     try {
         $startProcessArgs = @{
@@ -310,11 +322,11 @@ Function Start-AppHostEnvironment {
         $env:DOTNET_ENVIRONMENT = $previousDotnetEnvironment
         $env:ASPNETCORE_ENVIRONMENT = $previousAspNetCoreEnvironment
         $env:DISABLE_NGROK_TUNNEL = $previousDisableNgrokTunnel
-        $env:DatabaseAction = $previousDatabaseAction
         $env:NGROK_AUTHTOKEN = $previousNgrokAuthToken
+        $env:DatabaseAction = $previousDatabaseAction
     }
 
-    $timeout = [TimeSpan]::FromMinutes(5)
+    $timeout = [TimeSpan]::FromMinutes(10)
     $deadline = [DateTime]::UtcNow.Add($timeout)
     while ([DateTime]::UtcNow -lt $deadline) {
         if (Test-AppHostHealthy) {
