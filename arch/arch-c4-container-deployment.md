@@ -6,7 +6,7 @@ Icons: [Tabler](https://icones.js.org/collection/tabler) via [icones.js.org](htt
 C4Container
   title Container diagram
 
-  Person(user, "Church Staff", "Pastor, volunteer, or leader", "tabler:user")
+  Person(user, "SoftwareFactory Staff", "Pastor, volunteer, or leader", "tabler:user")
 
   System_Boundary(system, "AI Software Factory") {
     Container(ui, "Blazor WASM Client", "Blazor WebAssembly", "Interactive browser application", "tabler:app-window")

@@ -13,17 +13,17 @@ C4Context
   Person(childrenspastor, "Childrens' Pastor", "Kids ministry", "tabler:brand-apple-arcade")
   Person(volunteer, "Volunteer", "Prepares bulletins and projects announcements", "tabler:hand-stop")
 
-  System(churchbulletin, "AI Software Factory", "Digital signage and printed bulletin", "tabler:news")
+  System(aisoftwarefactory, "AI Software Factory", "Digital signage and printed bulletin", "tabler:news")
 
   System_Ext(printer, "Printer", "", "tabler:printer")
   System_Ext(projector, "Projector", "", "tabler:device-tv")
 
-  Rel_R(pastor, churchbulletin, "Add sermons")
-  Rel_R(biblestudyleader, churchbulletin, "Add classes")
-  Rel_R(worshipleader, churchbulletin, "Add services")
-  Rel_R(childrenspastor, churchbulletin, "Add sunday school classes")
-  Rel_R(volunteer, churchbulletin, "Operates system on Sunday morning")
+  Rel_R(pastor, aisoftwarefactory, "Add sermons")
+  Rel_R(biblestudyleader, aisoftwarefactory, "Add classes")
+  Rel_R(worshipleader, aisoftwarefactory, "Add services")
+  Rel_R(childrenspastor, aisoftwarefactory, "Add sunday school classes")
+  Rel_R(volunteer, aisoftwarefactory, "Operates system on Sunday morning")
 
-  Rel_R(churchbulletin, printer, "Send PDF to print", "Network printer")
-  Rel_R(churchbulletin, projector, "Projects digital signage", "Auto-animated")
+  Rel_R(aisoftwarefactory, printer, "Send PDF to print", "Network printer")
+  Rel_R(aisoftwarefactory, projector, "Projects digital signage", "Auto-animated")
 ```

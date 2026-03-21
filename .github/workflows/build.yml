@@ -113,7 +113,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: churchbulletin-nuget-packages
+          name: aisoftwarefactory-nuget-packages
           path: build/*.nupkg
           retention-days: 2
 
@@ -180,7 +180,7 @@ jobs:
           AI_OpenAI_ApiKey: ${{ secrets.AI_OPENAI_APIKEY }}
           AI_OpenAI_Url: ${{ vars.AI_OPENAI_URL }}
           AI_OpenAI_Model: ${{ vars.AI_OPENAI_MODEL }}
-          ConnectionStrings__SqlConnectionString: "Data Source=ChurchBulletin.db"
+          ConnectionStrings__SqlConnectionString: "Data Source=AISoftwareFactory.db"
         run: |
           Write-Host "Running Private Build with SQLite"
           . ./build.ps1
@@ -239,7 +239,7 @@ jobs:
           AI_OpenAI_ApiKey: ${{ secrets.AI_OPENAI_APIKEY }}
           AI_OpenAI_Url: ${{ vars.AI_OPENAI_URL }}
           AI_OpenAI_Model: ${{ vars.AI_OPENAI_MODEL }}
-          ConnectionStrings__SqlConnectionString: "Data Source=ChurchBulletin.db"
+          ConnectionStrings__SqlConnectionString: "Data Source=AISoftwareFactory.db"
         run: |
           Write-Host "Running Private Build with SQLite on ARM"
           . ./build.ps1
@@ -284,17 +284,17 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore solution
-        run: dotnet restore src/AISoftwareFactory.sln
+        run: dotnet restore src/AISoftwareFactory.slnx
 
       - name: Check code style
-        run: dotnet format style src/AISoftwareFactory.sln --verify-no-changes --verbosity normal
+        run: dotnet format style src/AISoftwareFactory.slnx --verify-no-changes --verbosity normal
 
       - name: Check analyzers
-        run: dotnet format analyzers src/AISoftwareFactory.sln --verify-no-changes --verbosity normal
+        run: dotnet format analyzers src/AISoftwareFactory.slnx --verify-no-changes --verbosity normal
 
       - name: Build with code analysis
         run: |
-          dotnet build src/AISoftwareFactory.sln --configuration Release --no-restore \
+          dotnet build src/AISoftwareFactory.slnx --configuration Release --no-restore \
             /p:TreatWarningsAsErrors=true \
             /p:MSBuildTreatAllWarningsAsErrors=true \
             /p:EnforceCodeStyleInBuild=true
@@ -357,7 +357,7 @@ jobs:
           path: build/test/**/*.trx
           retention-days: 2
 
-  docker-build-image-for-churchbulletin-ui:
+  docker-build-image-for-aisoftwarefactory-ui:
     name: Publish Release Candidate
     needs: [build-linux]
     if: false
@@ -388,17 +388,17 @@ jobs:
       - name: Download NuGet Packages
         uses: actions/download-artifact@v4
         with:
-          name: churchbulletin-nuget-packages
+          name: aisoftwarefactory-nuget-packages
           path: ./packages
 
-      # Extract ChurchBulletin.UI NuGet package
+      # Extract AISoftwareFactory.UI NuGet package
       - name: Extract UI NuGet Package
         run: |
-          # Find the ChurchBulletin.UI package
-          PACKAGE_FILE=$(find ./packages -name "ChurchBulletin.UI.*.nupkg" | head -n 1)
+          # Find the AISoftwareFactory.UI package
+          PACKAGE_FILE=$(find ./packages -name "AISoftwareFactory.UI.*.nupkg" | head -n 1)
           
           if [ -z "$PACKAGE_FILE" ]; then
-            echo "Error: ChurchBulletin.UI package not found"
+            echo "Error: AISoftwareFactory.UI package not found"
             ls -la ./packages/
             exit 1
           fi
@@ -471,7 +471,7 @@ jobs:
       # Login to Azure Container Registry (before Docker build for caching)
       - name: Login to ACR
         run: |
-          az acr login --name churchbulletingithubacr
+          az acr login --name aisoftwarefactorygithubacr
 
       # Build Docker image with BuildKit cache
       - name: Build Docker image
@@ -480,20 +480,20 @@ jobs:
           # Enable BuildKit for better caching
           export DOCKER_BUILDKIT=1
           # Pull latest image for layer caching
-          docker pull churchbulletingithubacr.azurecr.io/churchbulletin.ui:latest || true
+          docker pull aisoftwarefactorygithubacr.azurecr.io/aisoftwarefactory.ui:latest || true
           # Build with cache from latest image
           docker build \
-            --cache-from churchbulletingithubacr.azurecr.io/churchbulletin.ui:latest \
+            --cache-from aisoftwarefactorygithubacr.azurecr.io/aisoftwarefactory.ui:latest \
             -f Dockerfile \
-            -t churchbulletingithubacr.azurecr.io/churchbulletin.ui:${IMAGE_TAG} \
-            -t churchbulletingithubacr.azurecr.io/churchbulletin.ui:latest .
+            -t aisoftwarefactorygithubacr.azurecr.io/aisoftwarefactory.ui:${IMAGE_TAG} \
+            -t aisoftwarefactorygithubacr.azurecr.io/aisoftwarefactory.ui:latest .
 
       # Push Docker image to ACR
       - name: Push Docker image to ACR
         run: |
           IMAGE_TAG="${{ env.BUILD_BUILDNUMBER }}"
-          docker push churchbulletingithubacr.azurecr.io/churchbulletin.ui:${IMAGE_TAG}
-          docker push churchbulletingithubacr.azurecr.io/churchbulletin.ui:latest
+          docker push aisoftwarefactorygithubacr.azurecr.io/aisoftwarefactory.ui:${IMAGE_TAG}
+          docker push aisoftwarefactorygithubacr.azurecr.io/aisoftwarefactory.ui:latest
 
   publish-github-packages:
     name: Publish to GitHub Packages
@@ -507,7 +507,7 @@ jobs:
       - name: Download NuGet Packages
         uses: actions/download-artifact@v4
         with:
-          name: churchbulletin-nuget-packages
+          name: aisoftwarefactory-nuget-packages
           path: ./packages
 
       - name: Publish nupkgs to GitHub Packages
@@ -542,7 +542,7 @@ jobs:
       - name: Download NuGet Packages
         uses: actions/download-artifact@v4
         with:
-          name: churchbulletin-nuget-packages
+          name: aisoftwarefactory-nuget-packages
           path: ./packages
 
       - name: Publish Packages to Octopus Deploy
@@ -620,12 +620,12 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore solution
-        run: dotnet restore src/AISoftwareFactory.sln
+        run: dotnet restore src/AISoftwareFactory.slnx
 
       - name: Check NuGet packages for known vulnerabilities
         run: |
           echo "Scanning NuGet packages for known vulnerabilities..."
-          dotnet list src/AISoftwareFactory.sln package --vulnerable --include-transitive 2>&1 | tee vulnerability-report.txt
+          dotnet list src/AISoftwareFactory.slnx package --vulnerable --include-transitive 2>&1 | tee vulnerability-report.txt
           if grep -q "has the following vulnerable packages" vulnerability-report.txt; then
             echo "::error::Vulnerable NuGet packages detected"
             exit 1
@@ -635,7 +635,7 @@ jobs:
       - name: Check for deprecated NuGet packages
         run: |
           echo "Scanning for deprecated NuGet packages..."
-          dotnet list src/AISoftwareFactory.sln package --deprecated 2>&1 | tee deprecated-report.txt
+          dotnet list src/AISoftwareFactory.slnx package --deprecated 2>&1 | tee deprecated-report.txt
           if grep -q "has the following deprecated packages" deprecated-report.txt; then
             echo "::warning::Deprecated NuGet packages detected. Review deprecated-report.txt for details."
           else
@@ -807,7 +807,7 @@ jobs:
           AI_OpenAI_ApiKey: ${{ secrets.AI_OPENAI_APIKEY }}
           AI_OpenAI_Url: ${{ vars.AI_OPENAI_URL }}
           AI_OpenAI_Model: ${{ vars.AI_OPENAI_MODEL }}
-          ConnectionStrings__SqlConnectionString: "Data Source=ChurchBulletin.db"
+          ConnectionStrings__SqlConnectionString: "Data Source=AISoftwareFactory.db"
         run: |
           Write-Host "Running Acceptance Tests with SQLite on ARM"
           . ./build.ps1
