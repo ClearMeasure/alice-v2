@@ -42,6 +42,13 @@ public abstract class AbstractDatabaseCommand(string action) : Command<DatabaseO
 
     protected static string GetConnectionString(DatabaseOptions options)
     {
+        if (string.IsNullOrWhiteSpace(options.DatabaseServer))
+        {
+            var envConnStr = Environment.GetEnvironmentVariable("ConnectionStrings__SqlConnectionString");
+            if (!string.IsNullOrWhiteSpace(envConnStr))
+                return envConnStr;
+        }
+
         // Determine if this is a local server (localhost, 127.0.0.1, or LocalDB)
         var serverName = (options.DatabaseServer ?? string.Empty).Trim();
         var isLocalServer = serverName.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
