@@ -30,37 +30,38 @@ public class ServerFixture
     public static bool DatabaseInitialized { get; private set; }
     private static readonly object DatabaseLock = new();
     
-    /// <summary>
-    /// Shared Playwright instance for all tests. Thread-safe for parallel execution.
-    /// </summary>
-    public static IPlaywright Playwright { get; private set; } = null!;
+/// <summary>
+/// Shared Playwright instance for all tests. Thread-safe for parallel execution.
+/// </summary>
+public static IPlaywright Playwright { get; private set; } = null!;
 
-    [OneTimeSetUp]
-    public async Task OneTimeSetUp()
+[OneTimeSetUp]
+public async Task OneTimeSetUp()
+{
+    InitializeDatabaseOnce();
+    var configuration = TestHost.GetRequiredService<IConfiguration>();
+    ApplicationBaseUrl = configuration["ApplicationBaseUrl"] ?? throw new InvalidOperationException();
+    StartLocalServer = configuration.GetValue<bool>("StartLocalServer");
+    StartWorker = configuration.GetValue("StartWorker", true);
+    SkipScreenshotsForSpeed = configuration.GetValue<bool>("SkipScreenshotsForSpeed");
+    SlowMo = configuration.GetValue<int>("SlowMo");
+    HeadlessTestBrowser = configuration.GetValue<bool>("HeadlessTestBrowser");
+
+    Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+
+    // When using AppHost, skip direct server/worker management
+    // AppHost is responsible for starting all required services
+    if (StartLocalServer && !configuration.GetValue<bool>("UseAppHost"))
     {
-        InitializeDatabaseOnce();
-        var configuration = TestHost.GetRequiredService<IConfiguration>();
-        ApplicationBaseUrl = configuration["ApplicationBaseUrl"] ?? throw new InvalidOperationException();
-        StartLocalServer = configuration.GetValue<bool>("StartLocalServer");
-        StartWorker = configuration.GetValue("StartWorker", true);
-        SkipScreenshotsForSpeed = configuration.GetValue<bool>("SkipScreenshotsForSpeed");
-        SlowMo = configuration.GetValue<int>("SlowMo");
-        HeadlessTestBrowser = configuration.GetValue<bool>("HeadlessTestBrowser");
-
-
-        Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-
-        if (StartLocalServer)
-        {
-            await StartAndWaitForServer();
-            await ResetServerDbConnections();
-            await StartAndWaitForWorker();
-        }
-
-        await WarmUpContainerApp();
-        await VerifyApplicationHealthy();
-        await new BlazorWasmWarmUp(Playwright, ApplicationBaseUrl).ExecuteAsync();
+        await StartAndWaitForServer();
+        await ResetServerDbConnections();
+        await StartAndWaitForWorker();
     }
+
+    await WarmUpContainerApp();
+    await VerifyApplicationHealthy();
+    await new BlazorWasmWarmUp(Playwright, ApplicationBaseUrl).ExecuteAsync();
+}
 
     /// <summary>
     /// Sends HTTP warm-up requests to the Container App before Playwright browsers launch.

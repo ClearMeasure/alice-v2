@@ -188,7 +188,10 @@ Function Build {
 		[string]$databaseName = "",
 
 		[Parameter(Mandatory = $false)]
-		[switch]$UseSqlite
+		[switch]$UseSqlite,
+
+		[Parameter(Mandatory = $false)]
+		[switch]$RunAppHost
 	)
 
 	if ($UseSqlite) {
@@ -212,6 +215,12 @@ Function Build {
 	Setup-DatabaseForBuild
 	IntegrationTest
 
+	# If requested, run the AppHost after successful build
+	if ($RunAppHost) {
+		Log-Message -Message "Starting AppHost..." -Type "INFO"
+		& dotnet run --project src/AppHost/AppHost.csproj --no-launch-profile
+	}
+
 	$script:buildStopwatch.Stop()
 	$elapsed = $script:buildStopwatch.Elapsed.ToString()
 	if ($script:databaseEngine -eq "SQLite") {
@@ -223,6 +232,11 @@ Function Build {
 }
 
 Function Invoke-CIBuild {
+	param (
+		[Parameter(Mandatory = $false)]
+		[switch]$RunAppHost
+	)
+	
 	Resolve-DatabaseEngine
 
 	if ($script:databaseEngine -ne "SQLite") {
@@ -236,6 +250,12 @@ Function Invoke-CIBuild {
 	UnitTests
 	Setup-DatabaseForBuild
 	IntegrationTest
+	
+	# If requested, run the AppHost after successful build
+	if ($RunAppHost) {
+		Log-Message -Message "Starting AppHost..." -Type "INFO"
+		& dotnet run --project src/AppHost/AppHost.csproj --no-launch-profile
+	}
 
 	$script:buildStopwatch.Stop()
 	$elapsed = $script:buildStopwatch.Elapsed.ToString()

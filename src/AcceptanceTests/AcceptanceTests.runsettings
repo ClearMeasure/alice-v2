@@ -3,6 +3,11 @@
   <NUnit>
     <NumberOfTestWorkers>8</NumberOfTestWorkers>
   </NUnit>
+  <ApplicationConfiguration>
+    <UseAppHost>true</UseAppHost>
+    <StartLocalServer>false</StartLocalServer>
+    <StartWorker>false</StartWorker>
+  </ApplicationConfiguration>
   <!-- Do not add LoggerRunSettings/console here: dotnet test already attaches a
        console logger; a second one in runsettings duplicates every line (NUnit
        adapter, "Running all tests", etc.). Use -v on the dotnet test invocation instead. -->
