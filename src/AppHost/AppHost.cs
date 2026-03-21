@@ -1,6 +1,10 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
+// Set environment variables for the dashboard to avoid configuration errors
+Environment.SetEnvironmentVariable("ASPNETCORE_URLS", "http://localhost:5000");
+Environment.SetEnvironmentVariable("ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL", "http://localhost:4318");
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 // Use the same container name, port, and password as the build script (BuildFunctions.ps1
@@ -50,7 +54,7 @@ var uiServer = builder.AddProject<Projects.UI_Server>("ui-server")
     .WithReference(sqlDb)
     .WithReference(appInsights)
     // Fixed HTTP port so the ngrok container can reach the app via host.docker.internal.
-    .WithHttpEndpoint(port: 5174, name: "http")
+    // The endpoint is configured via launchSettings.json in the UI.Server project
     .WithEnvironment("Ngrok__ApiUrl", "http://localhost:4040")
     .WithEnvironment("Ngrok__Subdomain", ngrokSubdomain)
     .WaitForCompletion(migrations);
