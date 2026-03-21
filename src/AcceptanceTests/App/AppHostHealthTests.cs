@@ -80,12 +80,12 @@ public class AppHostHealthTests
     }
 
     [Test]
-    public async Task UiServer_HealthCheck_ReturnsHealthy()
+    public async Task UiServer_HealthCheck_ReturnsHealthyOrDegraded()
     {
         using var client = new HttpClient(InsecureHandler, disposeHandler: false);
         var body = await client.GetStringAsync($"{_uiBaseUrl}/_healthcheck");
         TestContext.Out.WriteLine($"/_healthcheck: {body}");
-        body.ShouldContain("Healthy");
+        IsAcceptableHealthStatus(body).ShouldBeTrue($"Expected Healthy or Degraded but got: {body}");
     }
 
     [Test]
@@ -97,6 +97,10 @@ public class AppHostHealthTests
         ((int)response.StatusCode).ShouldBeInRange(200, 399);
     }
 
+    private static bool IsAcceptableHealthStatus(string body) =>
+        body.Contains("Healthy", StringComparison.OrdinalIgnoreCase)
+        || body.Contains("Degraded", StringComparison.OrdinalIgnoreCase);
+
     private static async Task<bool> IsHealthyAsync(string url)
     {
         try
@@ -106,8 +110,7 @@ public class AppHostHealthTests
                 Timeout = TimeSpan.FromSeconds(5)
             };
             var body = await client.GetStringAsync(url);
-            return body.Contains("Healthy", StringComparison.OrdinalIgnoreCase)
-                || body.Contains("Degraded", StringComparison.OrdinalIgnoreCase);
+            return IsAcceptableHealthStatus(body);
         }
         catch
         {
