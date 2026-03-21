@@ -257,6 +257,29 @@ Function Get-AppHostSqlPort {
     return "1433"
 }
 
+Function Test-AppHostSqlReady {
+    $sqlPort = Get-AppHostSqlPort
+
+    try {
+        $client = [System.Net.Sockets.TcpClient]::new()
+        try {
+            $asyncResult = $client.BeginConnect("127.0.0.1", [int]$sqlPort, $null, $null)
+            if (-not $asyncResult.AsyncWaitHandle.WaitOne(2000, $false)) {
+                return $false
+            }
+
+            $client.EndConnect($asyncResult)
+            return $true
+        }
+        finally {
+            $client.Dispose()
+        }
+    }
+    catch {
+        return $false
+    }
+}
+
 Function Test-AppHostHealthy {
     param (
         [Parameter(Mandatory = $false)]
@@ -275,11 +298,19 @@ Function Test-AppHostHealthy {
 Function Start-AppHostEnvironment {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$DatabaseAction = "update"
+        [ValidateSet("Full", "ContainersOnly")]
+        [string]$StartupMode = "Full"
     )
 
-    if (Test-AppHostHealthy) {
-        Log-Message -Message "AppHost already healthy. Reusing running environment." -Type "INFO"
+    $containersOnly = $StartupMode -eq "ContainersOnly"
+    if (($containersOnly -and (Test-AppHostSqlReady)) -or ((-not $containersOnly) -and (Test-AppHostHealthy))) {
+        $message = if ($containersOnly) {
+            "AppHost SQL container already ready. Reusing running environment."
+        }
+        else {
+            "AppHost already healthy. Reusing running environment."
+        }
+        Log-Message -Message $message -Type "INFO"
         return $null
     }
 
@@ -296,13 +327,13 @@ Function Start-AppHostEnvironment {
     $previousAspNetCoreEnvironment = $env:ASPNETCORE_ENVIRONMENT
     $previousDisableNgrokTunnel = $env:DISABLE_NGROK_TUNNEL
     $previousNgrokAuthToken = $env:NGROK_AUTHTOKEN
-    $previousDatabaseAction = $env:DatabaseAction
+    $previousAppHostStartupMode = $env:APPHOST_STARTUP_MODE
 
     $env:DOTNET_ENVIRONMENT = "Development"
     $env:ASPNETCORE_ENVIRONMENT = "Development"
     $env:DISABLE_NGROK_TUNNEL = "true"
     $env:NGROK_AUTHTOKEN = ""
-    $env:DatabaseAction = $DatabaseAction
+    $env:APPHOST_STARTUP_MODE = if ($containersOnly) { "ContainersOnly" } else { "Full" }
 
     try {
         $startProcessArgs = @{
@@ -323,14 +354,21 @@ Function Start-AppHostEnvironment {
         $env:ASPNETCORE_ENVIRONMENT = $previousAspNetCoreEnvironment
         $env:DISABLE_NGROK_TUNNEL = $previousDisableNgrokTunnel
         $env:NGROK_AUTHTOKEN = $previousNgrokAuthToken
-        $env:DatabaseAction = $previousDatabaseAction
+        $env:APPHOST_STARTUP_MODE = $previousAppHostStartupMode
     }
 
     $timeout = [TimeSpan]::FromMinutes(10)
     $deadline = [DateTime]::UtcNow.Add($timeout)
     while ([DateTime]::UtcNow -lt $deadline) {
-        if (Test-AppHostHealthy) {
-            Log-Message -Message "AppHost environment is healthy." -Type "INFO"
+        $ready = if ($containersOnly) { Test-AppHostSqlReady } else { Test-AppHostHealthy }
+        if ($ready) {
+            $message = if ($containersOnly) {
+                "AppHost SQL container is ready."
+            }
+            else {
+                "AppHost environment is healthy."
+            }
+            Log-Message -Message $message -Type "INFO"
             $script:appHostProcess = $process
             return $process
         }

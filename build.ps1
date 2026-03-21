@@ -179,10 +179,9 @@ Function Build {
 		Init
 		Compile
 		UnitTests
-		Log-Message -Message "Starting AppHost-managed development environment ($databaseAction)..." -Type "INFO"
-		Start-AppHostEnvironment -DatabaseAction $databaseAction | Out-Null
-		$env:ConnectionStrings__SqlConnectionString = Get-AppHostSqlConnectionString
-		Log-Message -Message "Using AppHost SQL connection string: $(Get-RedactedConnectionString -ConnectionString $env:ConnectionStrings__SqlConnectionString)" -Type "DEBUG"
+		Log-Message -Message "Starting AppHost-managed infrastructure..." -Type "INFO"
+		Start-AppHostEnvironment -StartupMode ContainersOnly | Out-Null
+		MigrateDatabaseLocal
 		IntegrationTest
 	}
 	finally {
@@ -205,10 +204,9 @@ Function Invoke-CIBuild {
 		Init
 		Compile
 		UnitTests
-		Log-Message -Message "Starting AppHost-managed development environment ($databaseAction)..." -Type "INFO"
-		Start-AppHostEnvironment -DatabaseAction $databaseAction | Out-Null
-		$env:ConnectionStrings__SqlConnectionString = Get-AppHostSqlConnectionString
-		Log-Message -Message "Using AppHost SQL connection string: $(Get-RedactedConnectionString -ConnectionString $env:ConnectionStrings__SqlConnectionString)" -Type "DEBUG"
+		Log-Message -Message "Starting AppHost-managed infrastructure..." -Type "INFO"
+		Start-AppHostEnvironment -StartupMode ContainersOnly | Out-Null
+		MigrateDatabaseLocal
 		IntegrationTest
 	}
 	finally {
@@ -341,9 +339,9 @@ Function Invoke-AcceptanceTests {
 	try {
 		Init
 		Compile
-		Log-Message -Message "Starting AppHost-managed development environment ($databaseAction)..." -Type "INFO"
-		Start-AppHostEnvironment -DatabaseAction $databaseAction | Out-Null
-		$env:ConnectionStrings__SqlConnectionString = Get-AppHostSqlConnectionString
+		Log-Message -Message "Starting AppHost-managed infrastructure..." -Type "INFO"
+		Start-AppHostEnvironment -StartupMode ContainersOnly | Out-Null
+		MigrateDatabaseLocal
 		AcceptanceTests
 	}
 	finally {

@@ -37,7 +37,7 @@ public class AppHostHealthTests
         }
 
         TestContext.Out.WriteLine("AppHostHealthTests: starting AppHost...");
-        _appHostProcess = await AppHostHarness.StartAsync(_uiBaseUrl, rebuildDatabase: false);
+        _appHostProcess = await AppHostHarness.StartAsync(_uiBaseUrl);
         TestContext.Out.WriteLine("AppHostHealthTests: all services healthy.");
     }
 

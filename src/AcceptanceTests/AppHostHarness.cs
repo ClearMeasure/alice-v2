@@ -12,7 +12,7 @@ internal static class AppHostHarness
         ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
     };
 
-    internal static async Task<Process> StartAsync(string applicationBaseUrl, bool rebuildDatabase)
+    internal static async Task<Process> StartAsync(string applicationBaseUrl)
     {
         var healthUrl = $"{applicationBaseUrl.TrimEnd('/')}/_healthcheck";
         if (await IsHealthyAsync(healthUrl))
@@ -45,7 +45,6 @@ internal static class AppHostHarness
         process.StartInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
         process.StartInfo.Environment["DISABLE_NGROK_TUNNEL"] = "true";
         process.StartInfo.Environment["NGROK_AUTHTOKEN"] = "";
-        process.StartInfo.Environment["DatabaseAction"] = rebuildDatabase ? "rebuild" : "update";
         process.StartInfo.Environment["AI_OpenAI_ApiKey"] = "";
         process.StartInfo.Environment["AI_OpenAI_Url"] = "";
         process.StartInfo.Environment["AI_OpenAI_Model"] = "";

@@ -8,7 +8,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 // SQL Server Docker container.  ContainerLifetime.Persistent keeps the container alive
 // between Aspire restarts so data is preserved across sessions.
 var sqlPassword = builder.AddParameter("sql-password", secret: true);
-var databaseAction = Environment.GetEnvironmentVariable("DatabaseAction") ?? "update";
+var appHostStartupMode = Environment.GetEnvironmentVariable("APPHOST_STARTUP_MODE") ?? "full";
+var containersOnly = string.Equals(appHostStartupMode, "containersonly", StringComparison.OrdinalIgnoreCase);
 
 var sql = builder.AddSqlServer("sql", sqlPassword)
     .WithContainerName("aisoftwarefactory-mssql")
@@ -17,12 +18,13 @@ var sql = builder.AddSqlServer("sql", sqlPassword)
 
 var sqlDb = sql.AddDatabase("SqlConnectionString", databaseName: "AISoftwareFactory");
 
-var appInsights = builder.AddConnectionString("AppInsights");
+if (containersOnly)
+{
+    builder.Build().Run();
+    return;
+}
 
-var migrations = builder.AddProject<Projects.Database>("database")
-    .WithReference(sqlDb)
-    .WaitFor(sql)
-    .WithArgs(databaseAction);
+var appInsights = builder.AddConnectionString("AppInsights");
 
 // Compute a stable, DNS-safe ngrok subdomain.
 // In CI the BUILD_NUMBER / BUILD_BUILDNUMBER / GITHUB_RUN_NUMBER env vars supply a build
@@ -39,7 +41,7 @@ var uiServer = builder.AddProject<Projects.UI_Server>("ui-server")
     // Fixed HTTP port so the ngrok container can reach the app via host.docker.internal.
     .WithHttpEndpoint(port: 5174, name: "app-http")
     .WithHttpsEndpoint(port: 7174, name: "app-https")
-    .WaitForCompletion(migrations);
+    .WaitFor(sql);
 
 var ngrokAuthToken = Environment.GetEnvironmentVariable("NGROK_AUTHTOKEN") ?? string.Empty;
 if (!string.IsNullOrWhiteSpace(ngrokAuthToken))
@@ -64,10 +66,10 @@ if (!string.IsNullOrWhiteSpace(ngrokAuthToken))
     ngrok.WaitFor(uiServer);
 }
 
-builder.AddProject<Projects.Worker>("worker")
+var worker = builder.AddProject<Projects.Worker>("worker")
     .WithReference(sqlDb)
     .WithReference(appInsights)
-    .WaitForCompletion(migrations);
+    .WaitFor(sql);
 
 builder.Build().Run();
 

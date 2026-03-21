@@ -44,7 +44,7 @@ public class ServerFixture
             else
             {
                 TestContext.Out.WriteLine("AppHost: starting...");
-                _appHostProcess = await AppHostHarness.StartAsync(ApplicationBaseUrl, rebuildDatabase: true);
+                _appHostProcess = await AppHostHarness.StartAsync(ApplicationBaseUrl);
             }
 
             AppHostHarness.SetSqlConnectionStringEnvironmentVariable();
