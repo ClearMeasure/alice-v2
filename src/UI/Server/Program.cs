@@ -32,7 +32,8 @@ endpointConfiguration.EnableOpenTelemetry();
 var sqlConnectionString = builder.Configuration.GetConnectionString("SqlConnectionString") ?? "";
 if (sqlConnectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
 {
-    endpointConfiguration.UseTransport<LearningTransport>();
+    endpointConfiguration.UseTransport<LearningTransport>()
+        .StorageDirectory(Path.Combine(Path.GetTempPath(), "NServiceBus.Learning"));
 }
 else
 {
