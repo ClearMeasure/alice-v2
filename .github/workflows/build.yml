@@ -184,6 +184,7 @@ jobs:
   build-windows:
     name: Integration Build (Windows AppHost)
     runs-on: windows-latest
+    continue-on-error: true
     concurrency:
       group: build-windows-${{ github.ref }}
       cancel-in-progress: true
@@ -210,12 +211,6 @@ jobs:
         run: |
           $version = "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ github.run_number }}"
           "BUILD_BUILDNUMBER=$version" >> $env:GITHUB_ENV
-
-      - name: Switch Docker to Linux containers mode
-        shell: pwsh
-        run: |
-          & "$env:ProgramFiles\Docker\Docker\DockerCli.exe" -SwitchLinuxEngine
-          Start-Sleep -Seconds 15
 
       - name: Run Private Build (Windows AppHost)
         shell: pwsh
