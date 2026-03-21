@@ -47,6 +47,9 @@ jobs:
           echo "Build version: $version"
           echo "github.ref=${{ github.ref }}"
 
+      - name: Pre-pull SQL Server Docker image
+        run: docker pull mcr.microsoft.com/mssql/server:2022-latest
+
       - name: Run CI Build
         shell: pwsh
         env:
@@ -614,6 +617,9 @@ jobs:
         run: |
           version="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ github.run_number }}"
           echo "BUILD_BUILDNUMBER=$version" >> $GITHUB_ENV
+
+      - name: Pre-pull SQL Server Docker image
+        run: docker pull mcr.microsoft.com/mssql/server:2022-latest
 
       - name: Run Acceptance Tests
         shell: pwsh
