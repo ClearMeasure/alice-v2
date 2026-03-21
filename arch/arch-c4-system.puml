@@ -18,19 +18,19 @@ Person(worshipleader, "Worship Pastor", "music/choir")
 Person(childrenspastor, "Childrens' Pastor", "Kids ministry")
 Person(volunteer, "Volunteer", "Prepares bulletins and projects announcements")
 
-System(aisoftwarefactory, "AI Software Factory", "Digital signage and printed bulletin")
+System(churchbulletin, "AI Software Factory", "Digital signage and printed bulletin")
 
 System_Ext(printer, "Printer")
 System_Ext(projector, "Projector")
 
-Rel(pastor, aisoftwarefactory, "Add sermons")
-Rel(biblestudyleader, aisoftwarefactory, "Add classes")
-Rel(worshipleader, aisoftwarefactory, "Add services")
-Rel(childrenspastor, aisoftwarefactory, "Add sunday school classes")
-Rel(volunteer, aisoftwarefactory, "Operates system on Sunday morning")
+Rel(pastor, churchbulletin, "Add sermons")
+Rel(biblestudyleader, churchbulletin, "Add classes")
+Rel(worshipleader, churchbulletin, "Add services")
+Rel(childrenspastor, churchbulletin, "Add sunday school classes")
+Rel(volunteer, churchbulletin, "Operates system on Sunday morning")
 
-Rel(aisoftwarefactory, printer, "Send PDF to print", "Network printer")
-Rel(aisoftwarefactory, projector, "Projects digital signage", "Auto-animated")
+Rel(churchbulletin, printer, "Send PDF to print", "Network printer")
+Rel(churchbulletin, projector, "Projects digital signage", "Auto-animated")
 
 center footer
     Diagram Footer $(Version)

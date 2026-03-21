@@ -1,4 +1,4 @@
-.softwarefactory-hero {
+.church-hero {
     background: linear-gradient(135deg, #4a90e2 0%, #7b68ee 50%, #87ceeb 100%);
     min-height: 80vh;
     padding: 2rem;
@@ -10,7 +10,7 @@
     overflow: hidden;
 }
 
-.softwarefactory-hero::before {
+.church-hero::before {
     content: '';
     position: absolute;
     top: 0;
@@ -21,19 +21,19 @@
     opacity: 0.3;
 }
 
-.softwarefactory-header {
+.church-header {
     position: relative;
     z-index: 2;
     margin-bottom: 2rem;
 }
 
-.softwarefactory-icon {
+.church-icon {
     font-size: 4rem;
     margin-bottom: 1rem;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
-.softwarefactory-title {
+.church-title {
     font-size: 3rem;
     font-weight: bold;
     margin: 0.5rem 0;
@@ -42,14 +42,14 @@
     color: #a9a9a9;
 }
 
-.softwarefactory-subtitle {
+.church-subtitle {
     font-size: 1.3rem;
     opacity: 0.9;
     font-style: italic;
     margin-bottom: 2rem;
 }
 
-.softwarefactory-welcome {
+.church-welcome {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -94,19 +94,19 @@
     color: #ffd700;
 }
 
-.softwarefactory-illustration {
+.church-illustration {
     flex: 0 0 300px;
     height: 300px;
     position: relative;
 }
 
-.softwarefactory-building {
+.church-building {
     width: 100%;
     height: 100%;
     position: relative;
 }
 
-.softwarefactory-steeple {
+.church-steeple {
     position: absolute;
     top: 0;
     left: 50%;
@@ -128,7 +128,7 @@
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
 
-.softwarefactory-main {
+.church-main {
     position: absolute;
     bottom: 0;
     left: 50%;
@@ -140,7 +140,7 @@
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
-.softwarefactory-door {
+.church-door {
     position: absolute;
     bottom: 0;
     left: 50%;
@@ -152,7 +152,7 @@
     border: 2px solid #8b4513;
 }
 
-.softwarefactory-window {
+.church-window {
     position: absolute;
     top: 30px;
     width: 30px;
@@ -163,15 +163,15 @@
     box-shadow: inset 0 0 10px rgba(255,255,255,0.3);
 }
 
-.softwarefactory-window.left {
+.church-window.left {
     left: 30px;
 }
 
-.softwarefactory-window.right {
+.church-window.right {
     right: 30px;
 }
 
-.softwarefactory-info {
+.church-info {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
@@ -206,7 +206,7 @@
     opacity: 0.9;
 }
 
-.softwarefactory-footer {
+.church-footer {
     margin-top: 3rem;
     padding: 1.5rem;
     background: rgba(0,0,0,0.2);
@@ -217,7 +217,7 @@
 }
 
 @media (max-width: 768px) {
-    .softwarefactory-welcome {
+    .church-welcome {
         flex-direction: column;
         text-align: center;
     }
@@ -226,18 +226,18 @@
         text-align: center;
     }
 
-    .softwarefactory-title {
+    .church-title {
         font-size: 2rem;
     }
 
-    .softwarefactory-illustration {
+    .church-illustration {
         flex: none;
         width: 250px;
         height: 250px;
         margin: 0 auto;
     }
 
-    .softwarefactory-info {
+    .church-info {
         grid-template-columns: 1fr;
     }
 }

@@ -1,6 +1,6 @@
 {
   "servers": {
-    "AISoftwareFactory": {
+    "ChurchBulletin": {
       "type": "http",
       "url": "https://localhost:7174/mcp"
     }

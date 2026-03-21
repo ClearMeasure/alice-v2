@@ -10,7 +10,7 @@ if ($env:ConnectionStrings__SqlConnectionString -and -not (Test-IsGitHubActions)
 $projectName = "AISoftwareFactory"
 $base_dir = resolve-path .\
 $source_dir = Join-Path $base_dir "src"
-$solutionName = Join-Path $source_dir "AISoftwareFactory.slnx"
+$solutionName = Join-Path $source_dir "AISoftwareFactory.sln"
 $unitTestProjectPath = Join-Path $source_dir "UnitTests"
 $integrationTestProjectPath = Join-Path $source_dir "IntegrationTests"
 $acceptanceTestProjectPath = Join-Path $source_dir "AcceptanceTests"
@@ -70,7 +70,7 @@ Function Init {
 		}
 		"SQLite" {
 			if ([string]::IsNullOrEmpty($env:ConnectionStrings__SqlConnectionString)) {
-				$env:ConnectionStrings__SqlConnectionString = "Data Source=AISoftwareFactory.db"
+				$env:ConnectionStrings__SqlConnectionString = "Data Source=ChurchBulletin.db"
 			}
 		}
 	}

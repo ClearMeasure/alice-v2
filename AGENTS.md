@@ -23,7 +23,7 @@ This runs clean, restore, compile, unit tests, Docker SQL Server setup, DB migra
 The `launchSettings.json` contains a Windows-only LocalDB connection string that crashes on Linux. To run the app on Linux, bypass the launch profile and set environment variables manually:
 
 ```bash
-export ConnectionStrings__SqlConnectionString="server=localhost,1433;database=AISoftwareFactory;User ID=sa;Password=aisoftwarefactory-mssql#1A;TrustServerCertificate=true;"
+export ConnectionStrings__SqlConnectionString="server=localhost,1433;database=ChurchBulletin;User ID=sa;Password=churchbulletin-mssql#1A;TrustServerCertificate=true;"
 export ASPNETCORE_ENVIRONMENT=Development
 export APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=586d68ed-85bc-4092-ac8a-fabb7a583e93;IngestionEndpoint=https://centralus-2.in.applicationinsights.azure.com/;LiveEndpoint=https://centralus.livediagnostics.monitor.azure.com/;ApplicationId=5328e763-3c56-4eae-ad66-aa528a92e984"
 export AI_OpenAI_ApiKey=""
@@ -36,7 +36,7 @@ Key gotchas:
 - **Must use `--no-launch-profile`** to avoid the LocalDB connection string override from `launchSettings.json`.
 - **Must set `APPLICATIONINSIGHTS_CONNECTION_STRING`** or the Azure Monitor exporter will crash on startup.
 - **Must set `AI_OpenAI_*` vars to empty strings** to prevent the app from trying to connect to Azure OpenAI (it degrades gracefully).
-- The SQL Server Docker container must already be running (created by `PrivateBuild.ps1` or manually via `docker run`). The container name is `aisoftwarefactory-mssql` and the password is `aisoftwarefactory-mssql#1A`.
+- The SQL Server Docker container must already be running (created by `PrivateBuild.ps1` or manually via `docker run`). The container name is `churchbulletin-mssql` and the password is `churchbulletin-mssql#1A`.
 
 ### Docker Daemon
 
@@ -50,7 +50,7 @@ sudo chmod 666 /var/run/docker.sock
 
 ### Database
 
-The build scripts auto-detect the database engine. On Linux with Docker, SQL Server 2022 runs in a container on port 1433. The container is named `aisoftwarefactory-mssql` with password `aisoftwarefactory-mssql#1A`. The `PrivateBuild.ps1` script handles container creation, database creation, and migration automatically.
+The build scripts auto-detect the database engine. On Linux with Docker, SQL Server 2022 runs in a container on port 1433. The container is named `churchbulletin-mssql` with password `churchbulletin-mssql#1A`. The `PrivateBuild.ps1` script handles container creation, database creation, and migration automatically.
 
 ### SQLite Fallback
 

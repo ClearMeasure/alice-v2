@@ -10,7 +10,7 @@ endheader
 
 title Container diagram 
 
-Person(user, "Analyst", "Analyst, tester, engineer", "tabler:user")
+Person(user, "Church Staff", "Pastor, volunteer, or leader")
 
 System_Boundary(system, "AI Software Factory") {
     Container(ui, "Blazor WASM Client", "Blazor WebAssembly", "Interactive browser application")

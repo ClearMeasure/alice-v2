@@ -17,8 +17,8 @@ src/
   UI.Shared/             Shared UI types
   LlmGateway/            Azure OpenAI integration
   Worker/                Background hosted service
-  AppHost/               .NET Aspire orchestration
-  ServiceDefaults/       Aspire shared defaults (OpenTelemetry, health, discovery)
+  ChurchBulletin.AppHost/         .NET Aspire orchestration
+  ChurchBulletin.ServiceDefaults/ Aspire service defaults
   UnitTests/             NUnit + Shouldly
   IntegrationTests/      NUnit, LocalDB / SQL Server / SQLite
   AcceptanceTests/       NUnit + Playwright
@@ -47,7 +47,7 @@ src/
 . .\build.ps1 ; Build
 
 # dotnet CLI directly
-dotnet build src/AISoftwareFactory.slnx --configuration Release
+dotnet build src/AISoftwareFactory.sln --configuration Release
 ```
 
 ## Run Tests

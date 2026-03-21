@@ -145,7 +145,7 @@ a:hover, .btn-link:hover {
 }
 
 .loading-progress-text:after {
-    content: var(--blazor-load-percentage-text, "Loading Portal...");
+    content: var(--blazor-load-percentage-text, "Loading Church Portal...");
 }
 
 /* Form Controls Global Styling */

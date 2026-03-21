@@ -284,17 +284,17 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore solution
-        run: dotnet restore src/AISoftwareFactory.slnx
+        run: dotnet restore src/AISoftwareFactory.sln
 
       - name: Check code style
-        run: dotnet format style src/AISoftwareFactory.slnx --verify-no-changes --verbosity normal
+        run: dotnet format style src/AISoftwareFactory.sln --verify-no-changes --verbosity normal
 
       - name: Check analyzers
-        run: dotnet format analyzers src/AISoftwareFactory.slnx --verify-no-changes --verbosity normal
+        run: dotnet format analyzers src/AISoftwareFactory.sln --verify-no-changes --verbosity normal
 
       - name: Build with code analysis
         run: |
-          dotnet build src/AISoftwareFactory.slnx --configuration Release --no-restore \
+          dotnet build src/AISoftwareFactory.sln --configuration Release --no-restore \
             /p:TreatWarningsAsErrors=true \
             /p:MSBuildTreatAllWarningsAsErrors=true \
             /p:EnforceCodeStyleInBuild=true
@@ -620,12 +620,12 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore solution
-        run: dotnet restore src/AISoftwareFactory.slnx
+        run: dotnet restore src/AISoftwareFactory.sln
 
       - name: Check NuGet packages for known vulnerabilities
         run: |
           echo "Scanning NuGet packages for known vulnerabilities..."
-          dotnet list src/AISoftwareFactory.slnx package --vulnerable --include-transitive 2>&1 | tee vulnerability-report.txt
+          dotnet list src/AISoftwareFactory.sln package --vulnerable --include-transitive 2>&1 | tee vulnerability-report.txt
           if grep -q "has the following vulnerable packages" vulnerability-report.txt; then
             echo "::error::Vulnerable NuGet packages detected"
             exit 1
@@ -635,7 +635,7 @@ jobs:
       - name: Check for deprecated NuGet packages
         run: |
           echo "Scanning for deprecated NuGet packages..."
-          dotnet list src/AISoftwareFactory.slnx package --deprecated 2>&1 | tee deprecated-report.txt
+          dotnet list src/AISoftwareFactory.sln package --deprecated 2>&1 | tee deprecated-report.txt
           if grep -q "has the following deprecated packages" deprecated-report.txt; then
             echo "::warning::Deprecated NuGet packages detected. Review deprecated-report.txt for details."
           else

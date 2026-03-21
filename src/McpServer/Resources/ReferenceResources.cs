@@ -9,7 +9,7 @@ public class ReferenceResources
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    [McpServerResource(UriTemplate = "aisoftwarefactory://reference/application-skeleton", Name = "application-skeleton"),
+    [McpServerResource(UriTemplate = "churchbulletin://reference/application-skeleton", Name = "application-skeleton"),
      Description("High-level architectural layers retained in the cleaned application skeleton.")]
     public static string GetApplicationSkeleton()
     {
