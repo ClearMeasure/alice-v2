@@ -28,11 +28,7 @@ $test_dir = Join-Path $build_dir "test"
 $databaseAction = $env:DatabaseAction
 if ([string]::IsNullOrEmpty($databaseAction)) { $databaseAction = "Rebuild" }
 
-if (Test-IsArmArchitecture) {
-	$env:database_engine = "SQLite"
-	$env:DATABASE_ENGINE = "SQLite"
-}
-$script:databaseEngine = $env:DATABASE_ENGINE
+$script:databaseEngine = "AppHost"
 
 $databaseName = $projectName
 
@@ -153,15 +149,8 @@ Function Build {
 		[string]$databaseServer = "",
 
 		[Parameter(Mandatory = $false)]
-		[string]$databaseName = "",
-
-		[Parameter(Mandatory = $false)]
-		[switch]$UseSqlite
+		[string]$databaseName = ""
 	)
-
-	if ($UseSqlite) {
-		Log-Message -Message "Ignoring -UseSqlite. Build setup is standardized through AppHost." -Type "WARNING"
-	}
 
 	Resolve-DatabaseEngine
 
@@ -221,21 +210,7 @@ Function Resolve-DatabaseEngine {
 		Log-Message -Message "Ignoring DATABASE_ENGINE=$($env:DATABASE_ENGINE). Build setup is standardized through AppHost." -Type "WARNING"
 	}
 
-	$script:databaseEngine = Get-ResolvedDatabaseEngine -currentEngine "AppHost"
-	$script:useSqlite = $false
-}
-
-Function MigrateDatabaseLocal {
-	param (
-	 [Parameter(Mandatory = $true)]
-		[ValidateNotNullOrEmpty()]
-		[string]$databaseServerFunc,
-
-		[Parameter(Mandatory = $true)]
-		[ValidateNotNullOrEmpty()]
-		[string]$databaseNameFunc
-	)
-	throw "Direct database migration from build.ps1 has been removed. Start the environment through src\AppHost instead."
+	$script:databaseEngine = "AppHost"
 }
 
 Function PackageUI {
@@ -330,18 +305,11 @@ Function Invoke-AcceptanceTests {
 		[Parameter(Mandatory = $false)]
 		[string]$databaseServer = "",
 		[Parameter(Mandatory=$false)]
-		[string]$databaseName ="",
-
-		[Parameter(Mandatory = $false)]
-		[switch]$UseSqlite
+		[string]$databaseName =""
 	)
 
 	$projectConfig = "Release"
 	$sw = [Diagnostics.Stopwatch]::StartNew()
-
-	if ($UseSqlite) {
-		Log-Message -Message "Ignoring -UseSqlite. Acceptance tests now run against the AppHost-managed environment." -Type "WARNING"
-	}
 
 	Resolve-DatabaseEngine
 
@@ -366,19 +334,4 @@ Function Invoke-AcceptanceTests {
 	$sw.Stop()
 	$elapsed = $sw.Elapsed.ToString()
 	Log-Message -Message "ACCEPTANCE BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
-}
-
-Function Create-SqlServerInDocker {
-	param (
-		[Parameter(Mandatory = $true)]
-			[ValidateNotNullOrEmpty()]
-			[string]$serverName,
-		[Parameter(Mandatory = $true)]
-			[ValidateNotNullOrEmpty()]
-			[string]$dbAction,
-		[Parameter(Mandatory = $true)]
-			[ValidateNotNullOrEmpty()]
-			[string]$scriptDir
-		)
-	throw "Direct database provisioning has been removed. Start the development environment through src\AppHost instead."
 }

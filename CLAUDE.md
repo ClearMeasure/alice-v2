@@ -23,7 +23,7 @@ dotnet test src/UnitTests --configuration Release
 # Single unit test by name
 dotnet test src/UnitTests --configuration Release --filter "FullyQualifiedName~TestClassName.TestMethodName"
 
-# Integration tests (requires SQL Server — LocalDB on Windows, Docker container on Linux, SQLite fallback)
+# Integration tests (AppHost-managed SQL Server environment)
 dotnet test src/IntegrationTests --configuration Release
 
 # Acceptance tests (Playwright — install browsers first)
@@ -34,7 +34,7 @@ dotnet test src/AcceptanceTests --configuration Debug
 dotnet test src/AcceptanceTests --configuration Debug --filter "FullyQualifiedName~TestClassName.TestMethodName"
 ```
 
-**Run locally:** `cd src/UI/Server && dotnet run` → `https://localhost:7174` (health: `/_healthcheck`)
+**Run locally:** `cd src/AppHost && dotnet run` → `https://localhost:7174` (health: `/_healthcheck`)
 
 ## Onion Architecture (Strict)
 

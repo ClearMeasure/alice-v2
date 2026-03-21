@@ -44,7 +44,7 @@ This is a application built with:
 - **.NET 10.0** - Primary framework
 - **Blazor** - UI framework (WebAssembly + Server)
 - **Entity Framework Core 10** - Data access
-- **SQL Server** - Database (LocalDB for development)
+- **SQL Server** - Database orchestrated through Aspire AppHost for development and tests
 - **Onion Architecture** - Clean architecture pattern with Core, DataAccess, and UI layers
 - **MediatR** - CQRS pattern for queries and commands
 
@@ -131,7 +131,7 @@ All branches must be created inside a folder matching the username of the accoun
 - **DO NOT** upgrade .NET SDK version without approval (currently 10.0.x)
 - **ALWAYS** include unit tests for new functionality
 - **ALWAYS** update XML documentation for public APIs
-- Integration tests require SQL Server LocalDB
+- Integration tests run against the AppHost-managed SQL Server environment
 
 ## Dependencies
 
