@@ -8,12 +8,12 @@ namespace ClearMeasure.Bootcamp.Database.Console;
 [UsedImplicitly]
 public class DatabaseOptions : CommandSettings
 {
-    [CommandArgument(0, "<databaseServer>")]
-    [Description("The database server name or address")]
+    [CommandArgument(0, "[databaseServer]")]
+    [Description("The database server name or address. Omit to use ConnectionStrings__SqlConnectionString env var.")]
     public string DatabaseServer { get; set; } = string.Empty;
 
-    [CommandArgument(1, "<databaseName>")]
-    [Description("The name of the database")]
+    [CommandArgument(1, "[databaseName]")]
+    [Description("The name of the database. Omit to use ConnectionStrings__SqlConnectionString env var.")]
     public string DatabaseName { get; set; } = string.Empty;
 
     [CommandArgument(2, "[scriptDir]")]
@@ -30,14 +30,17 @@ public class DatabaseOptions : CommandSettings
 
     public override ValidationResult Validate()
     {
-        if (string.IsNullOrWhiteSpace(DatabaseServer))
+        var envConnStr = Environment.GetEnvironmentVariable("ConnectionStrings__SqlConnectionString");
+        var hasEnvConnStr = !string.IsNullOrWhiteSpace(envConnStr);
+
+        if (string.IsNullOrWhiteSpace(DatabaseServer) && !hasEnvConnStr)
         {
-            return ValidationResult.Error("Database server is required");
+            return ValidationResult.Error("Database server is required (or set ConnectionStrings__SqlConnectionString env var)");
         }
 
-        if (string.IsNullOrWhiteSpace(DatabaseName))
+        if (string.IsNullOrWhiteSpace(DatabaseName) && !hasEnvConnStr)
         {
-            return ValidationResult.Error("Database name is required");
+            return ValidationResult.Error("Database name is required (or set ConnectionStrings__SqlConnectionString env var)");
         }
 
 
