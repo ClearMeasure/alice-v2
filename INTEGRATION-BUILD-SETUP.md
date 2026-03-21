@@ -4,7 +4,7 @@ This document explains how to set up the GitHub Actions integration build workfl
 
 ## Overview
 
-The integration build workflow has been created based on `src/pure-azdo-pipeline.yml` and mirrors the build steps from the Azure Pipelines Integration_Build stage. It runs on Windows with SQL Server LocalDB support.
+The integration build workflow has been created based on `src/pure-azdo-pipeline.yml` and mirrors the build steps from the Azure Pipelines Integration_Build stage. It now starts the development environment through `src/AppHost` rather than provisioning LocalDB or ad hoc Docker resources in the workflow.
 
 ## Installation Steps
 
@@ -29,24 +29,25 @@ The integration build workflow has been created based on `src/pure-azdo-pipeline
 ## Workflow Features
 
 ### Build Environment
-- **Runner:** `windows-latest`
-- **SQL Server:** LocalDB (automatically started)
-- **.NET SDK:** 9.0.302
-- **.NET Runtime:** 6.0.0
+- **Runner:** `windows-latest` and `ubuntu-latest`
+- **Environment orchestration:** .NET Aspire AppHost
+- **SQL Server:** AppHost-managed SQL Server container
+- **.NET SDK:** 10.0.x
 
 ### Build Steps
 The workflow executes the following steps in order:
 1. Checkout code
 2. Setup .NET SDK and Runtime
-3. Start SQL Server LocalDB
+3. Build the solution
+4. Start AppHost
 4. Set version environment variable (format: `MAJOR.MINOR.RUN_NUMBER`)
 5. Run `build.ps1` with `Build` function, which:
-   - Cleans and restores dependencies
-   - Compiles the solution
-   - Runs unit tests with code coverage
-   - Migrates database using LocalDB
-   - Runs integration tests with code coverage
-   - Creates NuGet packages
+    - Cleans and restores dependencies
+    - Compiles the solution
+    - Runs unit tests with code coverage
+    - Starts the AppHost-managed SQL environment
+    - Runs integration tests with code coverage
+    - Creates NuGet packages
 
 ### Artifacts Retained
 All test artifacts and logs are kept for 30 days:
@@ -78,17 +79,14 @@ The workflow uses semantic versioning:
 
 Format: `MAJOR.MINOR.RUN_NUMBER` (e.g., `1.3.42`)
 
-## SQL Server LocalDB
+## AppHost-managed SQL environment
 
-The workflow automatically starts SQL Server LocalDB before running tests. The database is created using the instance name `(LocalDb)\MSSQLLocalDB`, which matches the default in `build.ps1`.
+The workflow starts `src/AppHost`, which owns SQL Server container startup, database migrations, `UI.Server`, and `Worker`. Integration and acceptance tests connect to the SQL Server instance exposed by AppHost on `localhost,1433`.
 
 ## Troubleshooting
 
-### SQL Server LocalDB Issues
-If you encounter SQL Server issues, verify LocalDB is available:
-```powershell
-sqllocaldb info MSSQLLocalDB
-```
+### AppHost startup issues
+If the build cannot reach `https://localhost:7174/_healthcheck`, inspect the AppHost logs captured by the build script under `build\apphost.stdout.log` and `build\apphost.stderr.log`.
 
 ### Test Failures
 All test results are uploaded as artifacts even if tests fail. Check the "Artifacts" section of the workflow run to download and review test results.

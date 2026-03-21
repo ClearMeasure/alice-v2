@@ -50,8 +50,6 @@ Function Init {
 		throw "PowerShell 7 is required to run this build script."
 	}
 
-	Initialize-SqlServerModule
-
 	if (Test-IsLinux) {
 		if (-not (Test-IsGitHubActions)) {
 			$env:NUGET_PACKAGES = "/tmp/nuget-packages"
@@ -60,19 +58,6 @@ Function Init {
 
 	if ([string]::IsNullOrEmpty($script:databaseServer)) {
 		$script:databaseServer = Get-DefaultDatabaseServer -engine $script:databaseEngine
-	}
-
-	switch ($script:databaseEngine) {
-		"SQL-Container" {
-			if (-not (Test-IsDockerRunning)) {
-				throw "Docker is not running. Start Docker (for example, Docker Desktop) so the container-based SQL Server required for 'SQL-Container' builds can run, then rerun this build script."
-			}
-		}
-		"SQLite" {
-			if ([string]::IsNullOrEmpty($env:ConnectionStrings__SqlConnectionString)) {
-				$env:ConnectionStrings__SqlConnectionString = "Data Source=AISoftwareFactory.db"
-			}
-		}
 	}
 
 	if (Test-Path "build") {
@@ -119,18 +104,10 @@ Function UnitTests {
 }
 
 Function Setup-DatabaseForBuild {
-	if ($script:databaseEngine -eq "SQL-Container") {
-		New-DockerContainerForSqlServer -containerName $(Get-ContainerName $script:databaseName)
-		New-SqlServerDatabase -serverName $script:databaseServer -databaseName $script:databaseName
-		$containerName = Get-ContainerName -DatabaseName $script:databaseName
-		$sqlPassword = Get-SqlServerPassword -ContainerName $containerName
-		$env:ConnectionStrings__SqlConnectionString = New-SqlServerConnectionString -server $script:databaseServer -database $script:databaseName -password $sqlPassword
-		MigrateDatabaseLocal -databaseServerFunc $script:databaseServer -databaseNameFunc $script:databaseName
-	}
-	elseif ($script:databaseEngine -eq "LocalDB") {
-		$env:ConnectionStrings__SqlConnectionString = New-IntegratedConnectionString -server $script:databaseServer -database $script:databaseName
-		MigrateDatabaseLocal -databaseServerFunc $script:databaseServer -databaseNameFunc $script:databaseName
-	}
+	Log-Message -Message "Starting AppHost-managed development environment..." -Type "INFO"
+	Start-AppHostEnvironment -DatabaseAction $databaseAction | Out-Null
+	$env:ConnectionStrings__SqlConnectionString = Get-AppHostSqlConnectionString
+	Log-Message -Message "Using AppHost SQL connection string: $(Get-RedactedConnectionString -ConnectionString $env:ConnectionStrings__SqlConnectionString)" -Type "DEBUG"
 }
 
 Function IntegrationTest {
@@ -138,19 +115,10 @@ Function IntegrationTest {
 
 	try {
 		exec {
-			if ($script:useSqlite) {
-				& dotnet test /p:CopyLocalLockFileAssemblies=true -nologo -v $verbosity --logger:trx `
-					--results-directory $(Join-Path $test_dir "IntegrationTests") --no-build `
-					--no-restore --configuration $projectConfig `
-					--collect:"XPlat Code Coverage" `
-					--filter "TestCategory!=SqlServerOnly"
-			}
-			else {
-				& dotnet test /p:CopyLocalLockFileAssemblies=true -nologo -v $verbosity --logger:trx `
-					--results-directory $(Join-Path $test_dir "IntegrationTests") --no-build `
-					--no-restore --configuration $projectConfig `
-					--collect:"XPlat Code Coverage"
-			}
+			& dotnet test /p:CopyLocalLockFileAssemblies=true -nologo -v $verbosity --logger:trx `
+				--results-directory $(Join-Path $test_dir "IntegrationTests") --no-build `
+				--no-restore --configuration $projectConfig `
+				--collect:"XPlat Code Coverage"
 		}
 	}
 	finally {
@@ -192,71 +160,69 @@ Function Build {
 	)
 
 	if ($UseSqlite) {
-		$script:databaseEngine = "SQLite"
+		Log-Message -Message "Ignoring -UseSqlite. Build setup is standardized through AppHost." -Type "WARNING"
 	}
 
 	Resolve-DatabaseEngine
 
-	if ($script:databaseEngine -ne "SQLite") {
-		if (-not [string]::IsNullOrEmpty($databaseServer)) {
-			$script:databaseServer = $databaseServer
-		}
-		$script:databaseName = Get-ResolvedDatabaseName -explicitName $databaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild (Test-IsLocalBuild)
+	if (-not [string]::IsNullOrEmpty($databaseServer)) {
+		Log-Message -Message "Ignoring databaseServer parameter. AppHost owns database startup." -Type "WARNING"
 	}
+	if (-not [string]::IsNullOrEmpty($databaseName)) {
+		Log-Message -Message "Ignoring databaseName parameter. AppHost uses the AISoftwareFactory database." -Type "WARNING"
+	}
+	$script:databaseName = Get-ResolvedDatabaseName -explicitName $databaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild (Test-IsLocalBuild)
 
 	$script:buildStopwatch = [Diagnostics.Stopwatch]::StartNew()
 
-	Init
-	Compile
-	UnitTests
-	Setup-DatabaseForBuild
-	IntegrationTest
+	try {
+		Init
+		Compile
+		UnitTests
+		Setup-DatabaseForBuild
+		IntegrationTest
+	}
+	finally {
+		Stop-AppHostEnvironment
+	}
 
 	$script:buildStopwatch.Stop()
 	$elapsed = $script:buildStopwatch.Elapsed.ToString()
-	if ($script:databaseEngine -eq "SQLite") {
-		Log-Message -Message "BUILD SUCCEEDED (SQLite) - Build time: $elapsed" -Type "INFO"
-	}
-	else {
-		Log-Message -Message "BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
-	}
+	Log-Message -Message "BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
 }
 
 Function Invoke-CIBuild {
 	Resolve-DatabaseEngine
 
-	if ($script:databaseEngine -ne "SQLite") {
-		$script:databaseName = Get-ResolvedDatabaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild $false
-	}
+	$script:databaseName = Get-ResolvedDatabaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild $false
 
 	$script:buildStopwatch = [Diagnostics.Stopwatch]::StartNew()
 
-	Init
-	Compile
-	UnitTests
-	Setup-DatabaseForBuild
-	IntegrationTest
+	try {
+		Init
+		Compile
+		UnitTests
+		Setup-DatabaseForBuild
+		IntegrationTest
+	}
+	finally {
+		Stop-AppHostEnvironment
+	}
 
 	$script:buildStopwatch.Stop()
 	$elapsed = $script:buildStopwatch.Elapsed.ToString()
-	if ($script:databaseEngine -eq "SQLite") {
-		Log-Message -Message "BUILD SUCCEEDED (SQLite) - Build time: $elapsed" -Type "INFO"
-	}
-	else {
-		Log-Message -Message "BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
-	}
+	Log-Message -Message "BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
 }
 
 # ── Helper Functions (in call order) ────────────────────────────────────────────
 
 Function Resolve-DatabaseEngine {
-	$onLinux = Test-IsLinux
-	$dockerAvailable = $false
-	if ($onLinux) {
-		$dockerAvailable = Test-IsDockerRunning
+	if (-not [string]::IsNullOrEmpty($env:DATABASE_ENGINE) -and $env:DATABASE_ENGINE -ne "AppHost") {
+		Log-Message -Message "Ignoring DATABASE_ENGINE=$($env:DATABASE_ENGINE). Build setup is standardized through AppHost." -Type "WARNING"
 	}
-	$script:databaseEngine = Get-ResolvedDatabaseEngine -currentEngine $script:databaseEngine -onLinux $onLinux -dockerAvailable $dockerAvailable
-	$script:useSqlite = ($script:databaseEngine -eq "SQLite")
+
+	$script:databaseEngine = Get-ResolvedDatabaseEngine -currentEngine "AppHost"
+	$script:useSqlite = $false
 }
 
 Function MigrateDatabaseLocal {
@@ -269,21 +235,7 @@ Function MigrateDatabaseLocal {
 		[ValidateNotNullOrEmpty()]
 		[string]$databaseNameFunc
 	)
-	$databaseDll = Join-PathSegments $source_dir "Database" "bin" $projectConfig $framework "ClearMeasure.Bootcamp.Database.dll"
-
-	if (Test-IsLinux) {
-		$containerName = Get-ContainerName -DatabaseName $databaseNameFunc
-		$sqlPassword = Get-SqlServerPassword -ContainerName $containerName
-		$dbArgs = @($databaseDll, $databaseAction, $databaseServerFunc, $databaseNameFunc, $script:databaseScripts, "sa", $sqlPassword)
-	}
-	else {
-		$dbArgs = @($databaseDll, $databaseAction, $databaseServerFunc, $databaseNameFunc, $script:databaseScripts)
-	}
-
-	& dotnet $dbArgs
-	if ($LASTEXITCODE -ne 0) {
-		throw "Database migration failed with exit code $LASTEXITCODE"
-	}
+	throw "Direct database migration from build.ps1 has been removed. Start the environment through src\AppHost instead."
 }
 
 Function PackageUI {
@@ -354,9 +306,8 @@ Function AcceptanceTests {
 		throw "Playwright script not found at $playwrightScript. Cannot run acceptance tests without the browsers."
 	}
 
-	$uiServerProcess = Get-Process -Name "ClearMeasure.Bootcamp.UI.Server" -ErrorAction SilentlyContinue
-	if ($uiServerProcess) {
-		Log-Message -Message "Warning: ClearMeasure.Bootcamp.UI.Server is already running in background (PID: $($uiServerProcess.Id)). This may interfere with acceptance tests." -Type "WARNING"
+	if (Test-AppHostHealthy) {
+		Log-Message -Message "AppHost is already running. Reusing existing environment for acceptance tests." -Type "INFO"
 	}
 
 	$runSettingsPath = Join-Path $acceptanceTestProjectPath "AcceptanceTests.runsettings"
@@ -389,31 +340,32 @@ Function Invoke-AcceptanceTests {
 	$sw = [Diagnostics.Stopwatch]::StartNew()
 
 	if ($UseSqlite) {
-		$script:databaseEngine = "SQLite"
+		Log-Message -Message "Ignoring -UseSqlite. Acceptance tests now run against the AppHost-managed environment." -Type "WARNING"
 	}
 
 	Resolve-DatabaseEngine
 
-	if ($script:databaseEngine -ne "SQLite") {
-		if (-not [string]::IsNullOrEmpty($databaseServer)) {
-			$script:databaseServer = $databaseServer
-		}
-		$script:databaseName = Get-ResolvedDatabaseName -explicitName $databaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild (Test-IsLocalBuild)
+	if (-not [string]::IsNullOrEmpty($databaseServer)) {
+		Log-Message -Message "Ignoring databaseServer parameter. AppHost owns database startup." -Type "WARNING"
 	}
+	if (-not [string]::IsNullOrEmpty($databaseName)) {
+		Log-Message -Message "Ignoring databaseName parameter. AppHost uses the AISoftwareFactory database." -Type "WARNING"
+	}
+	$script:databaseName = Get-ResolvedDatabaseName -explicitName $databaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild (Test-IsLocalBuild)
 
-	Init
-	Compile
-	Setup-DatabaseForBuild
-	AcceptanceTests
+	try {
+		Init
+		Compile
+		Setup-DatabaseForBuild
+		AcceptanceTests
+	}
+	finally {
+		Stop-AppHostEnvironment
+	}
 
 	$sw.Stop()
 	$elapsed = $sw.Elapsed.ToString()
-	if ($script:databaseEngine -eq "SQLite") {
-		Log-Message -Message "ACCEPTANCE BUILD SUCCEEDED (SQLite) - Build time: $elapsed" -Type "INFO"
-	}
-	else {
-		Log-Message -Message "ACCEPTANCE BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
-	}
+	Log-Message -Message "ACCEPTANCE BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
 }
 
 Function Create-SqlServerInDocker {
@@ -428,20 +380,5 @@ Function Create-SqlServerInDocker {
 			[ValidateNotNullOrEmpty()]
 			[string]$scriptDir
 		)
-	$tempDatabaseName = Generate-UniqueDatabaseName -baseName $projectName -generateUnique $true
-	$containerName = Get-ContainerName -DatabaseName $tempDatabaseName
-	$sqlPassword = Get-SqlServerPassword -ContainerName $containerName
-
-	New-DockerContainerForSqlServer -containerName $containerName
-	New-SqlServerDatabase -serverName $serverName -databaseName $tempDatabaseName
-
-	$env:ConnectionStrings__SqlConnectionString = New-SqlServerConnectionString -server $serverName -database $tempDatabaseName -password $sqlPassword
-	$databaseDll = Join-PathSegments $source_dir "Database" "bin" $projectConfig $framework "ClearMeasure.Bootcamp.Database.dll"
-	$dbArgs = @($databaseDll, $dbAction, $serverName, $tempDatabaseName, $scriptDir, "sa", $sqlPassword)
-	& dotnet $dbArgs
-	if ($LASTEXITCODE -ne 0) {
-		throw "Database migration failed with exit code $LASTEXITCODE"
-	}
-	# Restore connection string to default project database
-	$env:ConnectionStrings__SqlConnectionString = New-SqlServerConnectionString -server $script:databaseServer -database $projectName -password (Get-SqlServerPassword -ContainerName (Get-ContainerName -DatabaseName $projectName))
+	throw "Direct database provisioning has been removed. Start the development environment through src\AppHost instead."
 }

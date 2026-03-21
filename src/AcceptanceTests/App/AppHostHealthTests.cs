@@ -6,8 +6,8 @@ namespace ClearMeasure.Bootcamp.AcceptanceTests.App;
 /// Verifies the full application stack reports healthy by starting the AppHost (Aspire
 /// orchestrator) and polling the UI.Server health endpoint until the system is online.
 /// When run as part of the full acceptance test suite, ServerFixture has already started
-/// UI.Server and the health check runs against that instance. When run in isolation,
-/// this fixture starts AppHost directly, which launches UI.Server and Worker as child processes.
+/// AppHost and the health check runs against that instance. When run in isolation,
+/// this fixture starts AppHost directly.
 /// </summary>
 [TestFixture]
 [NonParallelizable]
@@ -30,52 +30,22 @@ public class AppHostHealthTests
 
         var healthUrl = $"{_uiBaseUrl}/_healthcheck";
 
-        if (await IsHealthyAsync(healthUrl))
+        if (await AppHostHarness.IsHealthyAsync(healthUrl))
         {
             TestContext.Out.WriteLine("AppHostHealthTests: server already healthy — reusing running instance.");
             return;
         }
 
         TestContext.Out.WriteLine("AppHostHealthTests: starting AppHost...");
-        var appHostDir = Path.Combine(ResolveRepoRoot(), "src", "AppHost");
-
-        _appHostProcess = Process.Start(new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            Arguments = "run",
-            WorkingDirectory = appHostDir,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        }) ?? throw new InvalidOperationException("Failed to start AppHost process.");
-
-        _appHostProcess.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-                TestContext.Out.WriteLine($"[AppHost] {e.Data}");
-        };
-        _appHostProcess.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-                TestContext.Out.WriteLine($"[AppHost err] {e.Data}");
-        };
-        _appHostProcess.BeginOutputReadLine();
-        _appHostProcess.BeginErrorReadLine();
-
-        await WaitForHealthyAsync(healthUrl, TimeSpan.FromSeconds(120));
+        _appHostProcess = await AppHostHarness.StartAsync(_uiBaseUrl, rebuildDatabase: false);
         TestContext.Out.WriteLine("AppHostHealthTests: all services healthy.");
     }
 
     [OneTimeTearDown]
     public async Task StopAppHost()
     {
-        if (_appHostProcess is { HasExited: false })
-        {
-            _appHostProcess.Kill(entireProcessTree: true);
-            await _appHostProcess.WaitForExitAsync();
-        }
-        _appHostProcess?.Dispose();
+        await ProcessCleanupHelper.StopServerProcessAsync(_appHostProcess, _uiBaseUrl);
+        try { _appHostProcess?.Dispose(); } catch (ObjectDisposedException) { }
         _appHostProcess = null;
     }
 
@@ -99,46 +69,4 @@ public class AppHostHealthTests
         ((int)response.StatusCode).ShouldBeInRange(200, 399);
     }
 
-    private static async Task<bool> IsHealthyAsync(string url)
-    {
-        try
-        {
-            using var client = new HttpClient(InsecureHandler, disposeHandler: false)
-            {
-                Timeout = TimeSpan.FromSeconds(5)
-            };
-            var body = await client.GetStringAsync(url);
-            return body.Contains("Healthy", StringComparison.OrdinalIgnoreCase)
-                || body.Contains("Degraded", StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static async Task WaitForHealthyAsync(string url, TimeSpan timeout)
-    {
-        var deadline = DateTime.UtcNow + timeout;
-        while (DateTime.UtcNow < deadline)
-        {
-            if (await IsHealthyAsync(url)) return;
-            await Task.Delay(TimeSpan.FromSeconds(3));
-        }
-
-        throw new TimeoutException(
-            $"Health check at '{url}' did not return Healthy or Degraded within {timeout.TotalSeconds}s.");
-    }
-
-    private static string ResolveRepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "src", "AISoftwareFactory.slnx")))
-                return dir.FullName;
-            dir = dir.Parent;
-        }
-        throw new InvalidOperationException("Could not locate repository root from AppContext.BaseDirectory.");
-    }
 }

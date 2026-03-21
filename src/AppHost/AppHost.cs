@@ -8,6 +8,11 @@ var builder = DistributedApplication.CreateBuilder(args);
 // SQL Server Docker container.  ContainerLifetime.Persistent keeps the container alive
 // between Aspire restarts so data is preserved across sessions.
 var sqlPassword = builder.AddParameter("sql-password", secret: true);
+var databaseAction = Environment.GetEnvironmentVariable("DatabaseAction") ?? "update";
+var disableNgrok = string.Equals(
+    Environment.GetEnvironmentVariable("DISABLE_NGROK_TUNNEL"),
+    "true",
+    StringComparison.OrdinalIgnoreCase);
 
 var sql = builder.AddSqlServer("sql", sqlPassword)
     .WithContainerName("aisoftwarefactory-mssql")
@@ -21,7 +26,7 @@ var appInsights = builder.AddConnectionString("AppInsights");
 var migrations = builder.AddProject<Projects.Database>("database")
     .WithReference(sqlDb)
     .WaitFor(sql)
-    .WithArgs("update");
+    .WithArgs(databaseAction);
 
 // Compute a stable, DNS-safe ngrok subdomain.
 // In CI the BUILD_NUMBER / BUILD_BUILDNUMBER / GITHUB_RUN_NUMBER env vars supply a build
@@ -32,31 +37,41 @@ var ngrokSubdomain = ComputeNgrokSubdomain();
 // Ngrok container: tunnels HTTP traffic from <subdomain>.ngrok.app to the local UI.Server.
 // The UI.Server is exposed on a fixed HTTP port (5174) so the container can reach it via
 // host.docker.internal.  Port 4040 is the ngrok local agent API used by the health check.
-var ngrokAuthToken = Environment.GetEnvironmentVariable("NGROK_AUTHTOKEN") ?? string.Empty;
-
-var ngrok = builder.AddContainer("ngrok", "ngrok/ngrok")
-    .WithEnvironment("NGROK_AUTHTOKEN", ngrokAuthToken)
-    .WithArgs(
-        "http",
-        "--domain", $"{ngrokSubdomain}.ngrok.app",
-        "--log", "stdout",
-        "http://host.docker.internal:5174")
-    // --add-host is required on Linux (Docker Engine) so that host.docker.internal
-    // resolves to the host machine's gateway IP.
-    .WithContainerRuntimeArgs("--add-host=host.docker.internal:host-gateway")
-    .WithHttpEndpoint(port: 4040, targetPort: 4040, name: "dashboard");
-
 var uiServer = builder.AddProject<Projects.UI_Server>("ui-server")
     .WithReference(sqlDb)
     .WithReference(appInsights)
     // Fixed HTTP port so the ngrok container can reach the app via host.docker.internal.
-    .WithHttpEndpoint(port: 5174, name: "http")
-    .WithEnvironment("Ngrok__ApiUrl", "http://localhost:4040")
-    .WithEnvironment("Ngrok__Subdomain", ngrokSubdomain)
+    .WithHttpEndpoint(port: 5174, name: "app-http")
+    .WithHttpsEndpoint(port: 7174, name: "app-https")
     .WaitForCompletion(migrations);
 
-// Ngrok must start after UI.Server is ready so it has something to tunnel to.
-ngrok.WaitFor(uiServer);
+if (disableNgrok)
+{
+    uiServer.WithEnvironment("NGROK_AUTHTOKEN", string.Empty);
+}
+
+var ngrokAuthToken = Environment.GetEnvironmentVariable("NGROK_AUTHTOKEN") ?? string.Empty;
+if (!disableNgrok && !string.IsNullOrWhiteSpace(ngrokAuthToken))
+{
+    var ngrok = builder.AddContainer("ngrok", "ngrok/ngrok")
+        .WithEnvironment("NGROK_AUTHTOKEN", ngrokAuthToken)
+        .WithArgs(
+            "http",
+            "--domain", $"{ngrokSubdomain}.ngrok.app",
+            "--log", "stdout",
+            "http://host.docker.internal:5174")
+        // --add-host is required on Linux (Docker Engine) so that host.docker.internal
+        // resolves to the host machine's gateway IP.
+        .WithContainerRuntimeArgs("--add-host=host.docker.internal:host-gateway")
+        .WithHttpEndpoint(port: 4040, targetPort: 4040, name: "dashboard");
+
+    uiServer
+        .WithEnvironment("Ngrok__ApiUrl", "http://localhost:4040")
+        .WithEnvironment("Ngrok__Subdomain", ngrokSubdomain);
+
+    // Ngrok must start after UI.Server is ready so it has something to tunnel to.
+    ngrok.WaitFor(uiServer);
+}
 
 builder.AddProject<Projects.Worker>("worker")
     .WithReference(sqlDb)
