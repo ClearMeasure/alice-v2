@@ -9,10 +9,6 @@ var builder = DistributedApplication.CreateBuilder(args);
 // between Aspire restarts so data is preserved across sessions.
 var sqlPassword = builder.AddParameter("sql-password", secret: true);
 var databaseAction = Environment.GetEnvironmentVariable("DatabaseAction") ?? "update";
-var disableNgrok = string.Equals(
-    Environment.GetEnvironmentVariable("DISABLE_NGROK_TUNNEL"),
-    "true",
-    StringComparison.OrdinalIgnoreCase);
 
 var sql = builder.AddSqlServer("sql", sqlPassword)
     .WithContainerName("aisoftwarefactory-mssql")
@@ -45,13 +41,8 @@ var uiServer = builder.AddProject<Projects.UI_Server>("ui-server")
     .WithHttpsEndpoint(port: 7174, name: "app-https")
     .WaitForCompletion(migrations);
 
-if (disableNgrok)
-{
-    uiServer.WithEnvironment("NGROK_AUTHTOKEN", string.Empty);
-}
-
 var ngrokAuthToken = Environment.GetEnvironmentVariable("NGROK_AUTHTOKEN") ?? string.Empty;
-if (!disableNgrok && !string.IsNullOrWhiteSpace(ngrokAuthToken))
+if (!string.IsNullOrWhiteSpace(ngrokAuthToken))
 {
     var ngrok = builder.AddContainer("ngrok", "ngrok/ngrok")
         .WithEnvironment("NGROK_AUTHTOKEN", ngrokAuthToken)

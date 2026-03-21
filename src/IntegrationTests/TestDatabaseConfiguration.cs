@@ -19,14 +19,6 @@ public class TestDatabaseConfiguration : IDatabaseConfiguration
 
     public void ResetConnectionPool()
     {
-        var connectionString = GetConnectionString();
-        if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
-        {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        }
-        else
-        {
-            Microsoft.Data.SqlClient.SqlConnection.ClearAllPools();
-        }
+        Microsoft.Data.SqlClient.SqlConnection.ClearAllPools();
     }
 }

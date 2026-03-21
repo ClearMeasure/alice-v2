@@ -18,15 +18,7 @@ public class DataContext : DbContext
     {
         optionsBuilder.EnableSensitiveDataLogging();
 
-        var connectionString = _config.GetConnectionString();
-        if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
-        {
-            optionsBuilder.UseSqlite(connectionString);
-        }
-        else
-        {
-            optionsBuilder.UseSqlServer(connectionString);
-        }
+        optionsBuilder.UseSqlServer(_config.GetConnectionString());
 
         base.OnConfiguring(optionsBuilder);
     }

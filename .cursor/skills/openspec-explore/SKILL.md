@@ -109,7 +109,7 @@ If the user mentions a change or you detect one is relevant:
    - etc.
 
 2. **Reference them naturally in conversation**
-   - "Your design mentions using Redis, but we just realized SQLite fits better..."
+   - "Your design mentions using Redis, but we just realized SQL Server fits better..."
    - "The proposal scopes this to premium users, but we're now thinking everyone..."
 
 3. **Offer to capture when decisions are made**
@@ -218,7 +218,7 @@ You: [reads change artifacts]
 
 **User wants to compare options:**
 ```
-User: Should we use Postgres or SQLite?
+User: Should we use Postgres or SQL Server?
 
 You: Generic answer is boring. What's the context?
 
@@ -235,12 +235,12 @@ You: That changes everything.
      • Must work offline
      • Single user
 
-                  SQLite          Postgres
+                SQL Server        Postgres
      Deployment   embedded ✓      needs server ✗
      Offline      yes ✓           no ✗
      Single file  yes ✓           no ✗
 
-     SQLite. Not even close.
+     SQL Server. Not even close.
 
      Unless... is there a sync component?
 ```

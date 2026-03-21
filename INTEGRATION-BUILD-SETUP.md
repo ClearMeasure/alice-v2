@@ -4,7 +4,7 @@ This document explains how to set up the GitHub Actions integration build workfl
 
 ## Overview
 
-The integration build workflow has been created based on `src/pure-azdo-pipeline.yml` and mirrors the build steps from the Azure Pipelines Integration_Build stage. It now starts the development environment through `src/AppHost` rather than provisioning LocalDB or ad hoc Docker resources in the workflow.
+The integration build workflow has been created based on `src/pure-azdo-pipeline.yml` and mirrors the build steps from the Azure Pipelines Integration_Build stage. It now starts the development environment through `src/AppHost` rather than provisioning legacy direct database resources in the workflow.
 
 ## Installation Steps
 

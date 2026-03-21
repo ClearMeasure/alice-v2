@@ -212,12 +212,6 @@ public class ServerFixture
             if (DatabaseInitialized) return;
 
             using var context = TestHost.GetRequiredService<DbContext>();
-            var isSqlite = context.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
-            if (isSqlite)
-            {
-                context.Database.EnsureCreated();
-            }
-
             new ZDataLoader().LoadData();
             TestContext.Out.WriteLine("ZDataLoader().LoadData(); - complete");
 
