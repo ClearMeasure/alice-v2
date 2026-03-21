@@ -41,6 +41,7 @@ public class UiServiceRegistry : ServiceRegistry
             .AddCheck<CanConnectToLlmServerHealthCheck>("LlmGateway")
             .AddCheck<CanConnectToDatabaseHealthCheck>("DataAccess")
             .AddCheck<Is64BitProcessHealthCheck>("Server")
-            .AddCheck<HealthCheck>("API");
+            .AddCheck<HealthCheck>("API")
+            .AddCheck<NgrokTunnelHealthCheck>("NgrokTunnel");
     }
 }
