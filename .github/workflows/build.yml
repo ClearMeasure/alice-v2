@@ -47,8 +47,24 @@ jobs:
           echo "Build version: $version"
           echo "github.ref=${{ github.ref }}"
 
-      - name: Pre-pull SQL Server Docker image
-        run: docker pull mcr.microsoft.com/mssql/server:2022-latest
+      - name: Start SQL Server container and wait for readiness
+        run: |
+          docker run -d \
+            --name aisoftwarefactory-mssql \
+            -e "ACCEPT_EULA=Y" \
+            -e "MSSQL_SA_PASSWORD=aisoftwarefactory-mssql#1A" \
+            -p 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+          echo "Waiting for SQL Server port 1433 to open..."
+          for i in $(seq 1 60); do
+            if bash -c 'echo >/dev/tcp/127.0.0.1/1433' 2>/dev/null; then
+              echo "Port 1433 is open after $i attempts. Giving SQL Server 10s to fully initialize..."
+              sleep 10
+              break
+            fi
+            echo "Attempt $i: port not ready yet, sleeping 3s..."
+            sleep 3
+          done
 
       - name: Run CI Build
         shell: pwsh
@@ -56,6 +72,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           BUILD_BUILDNUMBER: ${{ env.VERSION }}
+          DatabaseAction: Rebuild
           AI_OpenAI_ApiKey: ${{ secrets.AI_OPENAI_APIKEY }}
           AI_OpenAI_Url: ${{ vars.AI_OPENAI_URL }}
           AI_OpenAI_Model: ${{ vars.AI_OPENAI_MODEL }}
@@ -63,6 +80,17 @@ jobs:
           Write-Host "Running CI Build"
           . ./build.ps1
           Build
+
+      - name: Upload AppHost logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apphost-logs-linux
+          path: |
+            build/apphost.stdout.log
+            build/apphost.stderr.log
+          retention-days: 2
+          if-no-files-found: warn
 
       # Publish test results
       - name: Test Reporter
@@ -618,13 +646,30 @@ jobs:
           version="${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ github.run_number }}"
           echo "BUILD_BUILDNUMBER=$version" >> $GITHUB_ENV
 
-      - name: Pre-pull SQL Server Docker image
-        run: docker pull mcr.microsoft.com/mssql/server:2022-latest
+      - name: Start SQL Server container and wait for readiness
+        run: |
+          docker run -d \
+            --name aisoftwarefactory-mssql \
+            -e "ACCEPT_EULA=Y" \
+            -e "MSSQL_SA_PASSWORD=aisoftwarefactory-mssql#1A" \
+            -p 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+          echo "Waiting for SQL Server port 1433 to open..."
+          for i in $(seq 1 60); do
+            if bash -c 'echo >/dev/tcp/127.0.0.1/1433' 2>/dev/null; then
+              echo "Port 1433 is open after $i attempts. Giving SQL Server 10s to fully initialize..."
+              sleep 10
+              break
+            fi
+            echo "Attempt $i: port not ready yet, sleeping 3s..."
+            sleep 3
+          done
 
       - name: Run Acceptance Tests
         shell: pwsh
         env:
           BUILD_BUILDNUMBER: ${{ env.BUILD_BUILDNUMBER }}
+          DatabaseAction: Rebuild
           AI_OpenAI_ApiKey: ${{ secrets.AI_OPENAI_APIKEY }}
           AI_OpenAI_Url: ${{ vars.AI_OPENAI_URL }}
           AI_OpenAI_Model: ${{ vars.AI_OPENAI_MODEL }}
@@ -632,6 +677,17 @@ jobs:
           Write-Host "Running Acceptance Tests"
           . ./build.ps1
           Invoke-AcceptanceTests
+
+      - name: Upload AppHost logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apphost-logs-acceptance
+          path: |
+            build/apphost.stdout.log
+            build/apphost.stderr.log
+          retention-days: 2
+          if-no-files-found: warn
 
       - name: Test Reporter
         uses: dorny/test-reporter@v2.1.1
