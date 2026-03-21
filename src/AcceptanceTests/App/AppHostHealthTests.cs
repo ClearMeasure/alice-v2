@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace ClearMeasure.Bootcamp.AcceptanceTests.App;
 
@@ -80,12 +81,15 @@ public class AppHostHealthTests
     }
 
     [Test]
-    public async Task UiServer_HealthCheck_ReturnsHealthyOrDegraded()
+    public async Task UiServer_HealthCheck_ReturnsHealthy()
     {
+        if (RuntimeInformation.ProcessArchitecture is Architecture.Arm or Architecture.Arm64)
+            Assert.Ignore("Skipped on ARM: Worker requires SqlServerTransport so health returns Degraded, not Healthy.");
+
         using var client = new HttpClient(InsecureHandler, disposeHandler: false);
         var body = await client.GetStringAsync($"{_uiBaseUrl}/_healthcheck");
         TestContext.Out.WriteLine($"/_healthcheck: {body}");
-        IsAcceptableHealthStatus(body).ShouldBeTrue($"Expected Healthy or Degraded but got: {body}");
+        body.ShouldContain("Healthy");
     }
 
     [Test]
@@ -97,10 +101,6 @@ public class AppHostHealthTests
         ((int)response.StatusCode).ShouldBeInRange(200, 399);
     }
 
-    private static bool IsAcceptableHealthStatus(string body) =>
-        body.Contains("Healthy", StringComparison.OrdinalIgnoreCase)
-        || body.Contains("Degraded", StringComparison.OrdinalIgnoreCase);
-
     private static async Task<bool> IsHealthyAsync(string url)
     {
         try
@@ -110,7 +110,8 @@ public class AppHostHealthTests
                 Timeout = TimeSpan.FromSeconds(5)
             };
             var body = await client.GetStringAsync(url);
-            return IsAcceptableHealthStatus(body);
+            return body.Contains("Healthy", StringComparison.OrdinalIgnoreCase)
+                || body.Contains("Degraded", StringComparison.OrdinalIgnoreCase);
         }
         catch
         {
