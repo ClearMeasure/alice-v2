@@ -1,12 +1,7 @@
 using System.Diagnostics;
-using Aspire.Hosting;
-using Aspire.Hosting.Testing;
 using ClearMeasure.Bootcamp.Core;
 using ClearMeasure.Bootcamp.DataAccess.Mappings;
-using ClearMeasure.Bootcamp.Core.Model;
-using ClearMeasure.Bootcamp.IntegrationTests;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 
 namespace ClearMeasure.Bootcamp.AcceptanceTests;
 
@@ -14,6 +9,7 @@ namespace ClearMeasure.Bootcamp.AcceptanceTests;
 public class ServerFixture
 {
     private const string UiServerProjectPath = "../../../../UI/Server";
+    private const string WorkerProjectPath = "../../../../Worker";
     private const int WaitTimeoutSeconds = 60;
 
     public static int SlowMo { get; set; } = 100;
@@ -22,8 +18,8 @@ public class ServerFixture
     public static bool HeadlessTestBrowser { get; set; } = true;
 
     /// <summary>
-    /// True once the Worker resource is running. For SQL Server mode the AppHost
-    /// always starts Worker. For SQLite mode Worker is skipped (requires SqlServerTransport).
+    /// True once the Worker resource is running. Worker is started for SQL Server
+    /// mode and skipped for SQLite (Worker requires SqlServerTransport).
     /// </summary>
     public static bool WorkerStarted { get; private set; }
 
@@ -32,8 +28,8 @@ public class ServerFixture
     /// </summary>
     public static IPlaywright Playwright { get; private set; } = null!;
 
-    private DistributedApplication? _app;
     private Process? _serverProcess;
+    private Process? _workerProcess;
 
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
@@ -46,11 +42,11 @@ public class ServerFixture
 
         if (useSqlite)
         {
-            await StartViaDotnetRunAsync();
+            await StartViaDotnetRunAsync(sqliteMode: true);
         }
         else
         {
-            await StartViaAspireAsync();
+            await StartViaDotnetRunAsync(sqliteMode: false);
         }
 
         Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
@@ -61,10 +57,12 @@ public class ServerFixture
     [OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
-        if (_app is not null)
+        // Stop Worker first (it calls back to UI.Server via RemotableBus)
+        if (_workerProcess is not null)
         {
-            await _app.DisposeAsync();
-            _app = null;
+            await StopProcessAsync(_workerProcess);
+            _workerProcess.Dispose();
+            _workerProcess = null;
         }
 
         if (_serverProcess is not null)
@@ -90,86 +88,52 @@ public class ServerFixture
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Aspire path (SQL Server / Docker container)
+    // dotnet run startup (used for both SQL Server and SQLite modes)
     // ─────────────────────────────────────────────────────────────────────────
 
-    private async Task StartViaAspireAsync()
-    {
-        // Supply the sql-password parameter if not already set in the environment.
-        // In CI, Setup-DatabaseForBuild starts the SQL Server container using the
-        // password derived from Get-SqlServerPassword("aisoftwarefactory-mssql"),
-        // which returns "aisoftwarefactory-mssql#1A". Aspire reads the parameter
-        // value from Parameters:{name} configuration, so inject it here when no
-        // explicit override is present.
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("Parameters__sql-password")))
-        {
-            Environment.SetEnvironmentVariable("Parameters__sql-password", "aisoftwarefactory-mssql#1A");
-        }
-
-        // AppInsights is optional for testing. Provide a dummy value so Aspire does not
-        // fail to resolve the connection string resource when no real key is configured.
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ConnectionStrings__AppInsights")))
-        {
-            Environment.SetEnvironmentVariable("ConnectionStrings__AppInsights", "InstrumentationKey=00000000-0000-0000-0000-000000000000");
-        }
-
-        var appHost = await DistributedApplicationTestingBuilder
-            .CreateAsync<Projects.AppHost>();
-
-        _app = await appHost.BuildAsync();
-        await _app.StartAsync();
-
-        var uiEndpoint = _app.GetEndpoint("ui-server");
-        ApplicationBaseUrl = uiEndpoint.ToString().TrimEnd('/');
-
-        var connectionString = await _app.GetConnectionStringAsync("SqlConnectionString")
-            ?? throw new InvalidOperationException("SqlConnectionString not available from Aspire AppHost.");
-
-        // Publish the connection string so TestHost (used by TracerBulletTests and others)
-        // connects to the same SQL Server managed by the Aspire AppHost.
-        Environment.SetEnvironmentVariable("ConnectionStrings__SqlConnectionString", connectionString);
-
-        await SeedTestDataAsync(connectionString);
-
-        // Worker is always started by the AppHost when using SQL Server transport.
-        WorkerStarted = true;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // SQLite / direct dotnet run path
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private async Task StartViaDotnetRunAsync()
+    private async Task StartViaDotnetRunAsync(bool sqliteMode)
     {
         var configuration = TestHost.GetRequiredService<IConfiguration>();
         ApplicationBaseUrl = configuration["ApplicationBaseUrl"] ?? "https://localhost:7174";
 
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__SqlConnectionString")
             ?? configuration.GetConnectionString("SqlConnectionString")
-            ?? "Data Source=AISoftwareFactory.db";
+            ?? (sqliteMode ? "Data Source=AISoftwareFactory.db" : throw new InvalidOperationException("ConnectionStrings__SqlConnectionString is required for SQL Server mode"));
 
-        // Resolve SQLite path to absolute so the server process uses the same file.
-        if (!connectionString.Contains(":memory:", StringComparison.OrdinalIgnoreCase))
+        if (sqliteMode)
         {
-            var dbPath = connectionString["Data Source=".Length..].Trim();
-            var semicolonIndex = dbPath.IndexOf(';');
-            if (semicolonIndex >= 0) dbPath = dbPath[..semicolonIndex];
-            if (!Path.IsPathRooted(dbPath))
+            // Resolve SQLite path to absolute so the server process uses the same file.
+            if (!connectionString.Contains(":memory:", StringComparison.OrdinalIgnoreCase))
             {
-                var absolutePath = Path.GetFullPath(dbPath);
-                connectionString = $"Data Source={absolutePath}";
+                var dbPath = connectionString["Data Source=".Length..].Trim();
+                var semicolonIndex = dbPath.IndexOf(';');
+                if (semicolonIndex >= 0) dbPath = dbPath[..semicolonIndex];
+                if (!Path.IsPathRooted(dbPath))
+                {
+                    var absolutePath = Path.GetFullPath(dbPath);
+                    connectionString = $"Data Source={absolutePath}";
+                }
             }
+
+            // Publish the absolute path so TestHost's IConfiguration (which reads env vars)
+            // resolves the same database file when ZDataLoader seeds data.
+            Environment.SetEnvironmentVariable("ConnectionStrings__SqlConnectionString", connectionString);
         }
 
-        // Publish the absolute path so TestHost's IConfiguration (which reads env vars)
-        // resolves the same database file when ZDataLoader seeds data.
-        Environment.SetEnvironmentVariable("ConnectionStrings__SqlConnectionString", connectionString);
-
-        // Seed test data into the SQLite database before starting the server.
-        InitializeDatabaseOnce(connectionString);
+        // Seed test data before starting the server.
+        if (sqliteMode)
+            InitializeDatabaseOnce(connectionString);
+        else
+            SeedSqlServerTestData(connectionString);
 
         var buildConfig = GetBuildConfiguration();
-        var arguments = $"run --no-build --configuration {buildConfig} --no-launch-profile --urls={ApplicationBaseUrl}";
+
+        // For SQLite: use --no-launch-profile to prevent launchSettings.json from
+        // overriding connection strings; inject settings manually via env vars.
+        // For SQL Server: use the default launch profile so the server starts normally.
+        var arguments = sqliteMode
+            ? $"run --no-build --configuration {buildConfig} --no-launch-profile --urls={ApplicationBaseUrl}"
+            : $"run --no-build --configuration {buildConfig} --urls={ApplicationBaseUrl}";
 
         _serverProcess = new Process
         {
@@ -185,10 +149,14 @@ public class ServerFixture
             }
         };
 
-        _serverProcess.StartInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
         _serverProcess.StartInfo.Environment["ConnectionStrings__SqlConnectionString"] = connectionString;
-        _serverProcess.StartInfo.Environment["APPLICATIONINSIGHTS_CONNECTION_STRING"] =
-            "InstrumentationKey=00000000-0000-0000-0000-000000000000";
+
+        if (sqliteMode)
+        {
+            _serverProcess.StartInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
+            _serverProcess.StartInfo.Environment["APPLICATIONINSIGHTS_CONNECTION_STRING"] =
+                "InstrumentationKey=00000000-0000-0000-0000-000000000000";
+        }
 
         _serverProcess.Start();
 
@@ -218,8 +186,78 @@ public class ServerFixture
         if (DateTime.UtcNow >= deadline)
             throw new Exception($"UI.Server did not start within {WaitTimeoutSeconds}s. Last exception: {lastEx}");
 
-        // Worker requires SqlServerTransport — skip for SQLite.
-        WorkerStarted = false;
+        if (!sqliteMode)
+        {
+            await StartWorkerAsync(connectionString);
+            WorkerStarted = true;
+        }
+    }
+
+    /// <summary>
+    /// Starts the Worker process (NServiceBus message handler host).
+    /// Worker requires SqlServerTransport and is skipped in SQLite mode.
+    /// </summary>
+    private async Task StartWorkerAsync(string connectionString)
+    {
+        TestContext.Out.WriteLine("Worker: starting...");
+        var buildConfig = GetBuildConfiguration();
+        var arguments = $"run --no-build --configuration {buildConfig} --no-launch-profile";
+
+        _workerProcess = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = arguments,
+                WorkingDirectory = WorkerProjectPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+
+        _workerProcess.StartInfo.Environment["ConnectionStrings__SqlConnectionString"] = connectionString;
+        _workerProcess.StartInfo.Environment["RemotableBus__ApiUrl"] =
+            $"{ApplicationBaseUrl}/api/blazor-wasm-single-api";
+        _workerProcess.StartInfo.Environment["DOTNET_ENVIRONMENT"] = "Development";
+        _workerProcess.StartInfo.Environment["APPLICATIONINSIGHTS_CONNECTION_STRING"] =
+            "InstrumentationKey=00000000-0000-0000-0000-000000000000";
+        _workerProcess.StartInfo.Environment["AI_OpenAI_ApiKey"] = "";
+        _workerProcess.StartInfo.Environment["AI_OpenAI_Url"] = "";
+        _workerProcess.StartInfo.Environment["AI_OpenAI_Model"] = "";
+
+        var readySignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _workerProcess.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data == null) return;
+            TestContext.Out.WriteLine($"  [Worker stdout] {e.Data}");
+            if (e.Data.Contains("started", StringComparison.OrdinalIgnoreCase))
+                readySignal.TrySetResult(true);
+        };
+        _workerProcess.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null) TestContext.Out.WriteLine($"  [Worker stderr] {e.Data}");
+        };
+
+        _workerProcess.Start();
+        _workerProcess.BeginOutputReadLine();
+        _workerProcess.BeginErrorReadLine();
+
+        var timeout = Task.Delay(TimeSpan.FromSeconds(WaitTimeoutSeconds));
+        var completed = await Task.WhenAny(readySignal.Task, timeout);
+
+        if (completed == timeout)
+        {
+            TestContext.Out.WriteLine(
+                $"Worker: did not detect startup confirmation within {WaitTimeoutSeconds}s. " +
+                "Proceeding anyway — SqlServerTransport is durable.");
+        }
+        else
+        {
+            TestContext.Out.WriteLine("Worker: started successfully.");
+        }
     }
 
     private static string GetBuildConfiguration() =>
@@ -233,24 +271,23 @@ public class ServerFixture
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Clears all existing data and seeds the baseline employees using the
-    /// connection string provided by the Aspire AppHost.
+    /// Seeds test data into the SQL Server database. The database and schema are
+    /// already created by Setup-DatabaseForBuild; only employee rows are needed here.
     /// </summary>
-    private static async Task SeedTestDataAsync(string connectionString)
+    private static void SeedSqlServerTestData(string connectionString)
     {
         var config = new LiteralDatabaseConfiguration(connectionString);
-        await using var context = new DataContext(config);
+        using var context = new DataContext(config);
 
         new DatabaseEmptier(context.Database).DeleteAllData();
-
         foreach (var employee in BuildEmployees())
             context.Add(employee);
 
-        await context.SaveChangesAsync();
+        context.SaveChanges();
     }
 
     /// <summary>
-    /// Initialises the SQLite database (EnsureCreated + seed) for the direct dotnet-run path.
+    /// Initialises the SQLite database (EnsureCreated + seed) for the SQLite path.
     /// </summary>
     private static void InitializeDatabaseOnce(string connectionString)
     {
@@ -365,7 +402,7 @@ public class ServerFixture
         body.Contains("Degraded", StringComparison.OrdinalIgnoreCase);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Process management (SQLite path only)
+    // Process management
     // ─────────────────────────────────────────────────────────────────────────
 
     private static async Task StopProcessAsync(Process process)
