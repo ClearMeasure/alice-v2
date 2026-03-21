@@ -1,7 +1,8 @@
 using System.Diagnostics;
 using ClearMeasure.Bootcamp.Core;
 using ClearMeasure.Bootcamp.DataAccess.Mappings;
-using Microsoft.EntityFrameworkCore;
+using ClearMeasure.Bootcamp.Core.Model;
+using ClearMeasure.Bootcamp.IntegrationTests;
 
 namespace ClearMeasure.Bootcamp.AcceptanceTests;
 
@@ -18,8 +19,7 @@ public class ServerFixture
     public static bool HeadlessTestBrowser { get; set; } = true;
 
     /// <summary>
-    /// True once the Worker resource is running. Worker is started for SQL Server
-    /// mode and skipped for SQLite (Worker requires SqlServerTransport).
+    /// True once the Worker process is running.
     /// </summary>
     public static bool WorkerStarted { get; private set; }
 
@@ -38,16 +38,35 @@ public class ServerFixture
         SkipScreenshotsForSpeed = !string.Equals(Environment.GetEnvironmentVariable("SkipScreenshotsForSpeed"), "false", StringComparison.OrdinalIgnoreCase);
         HeadlessTestBrowser = !string.Equals(Environment.GetEnvironmentVariable("HeadlessTestBrowser"), "false", StringComparison.OrdinalIgnoreCase);
 
-        var useSqlite = IsSqliteMode();
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__SqlConnectionString")
+            ?? throw new InvalidOperationException("ConnectionStrings__SqlConnectionString environment variable is required");
 
-        if (useSqlite)
+        ApplicationBaseUrl = "https://localhost:7174";
+
+        SeedTestData(connectionString);
+
+        var buildConfig = GetBuildConfiguration();
+
+        _serverProcess = new Process
         {
-            await StartViaDotnetRunAsync(sqliteMode: true);
-        }
-        else
-        {
-            await StartViaDotnetRunAsync(sqliteMode: false);
-        }
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"run --no-build --configuration {buildConfig} --urls={ApplicationBaseUrl}",
+                WorkingDirectory = UiServerProjectPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+        _serverProcess.StartInfo.Environment["ConnectionStrings__SqlConnectionString"] = connectionString;
+        _serverProcess.Start();
+
+        await WaitForServerAsync(ApplicationBaseUrl);
+
+        await StartWorkerAsync(connectionString);
+        WorkerStarted = true;
 
         Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await VerifyApplicationHealthy();
@@ -75,92 +94,39 @@ public class ServerFixture
         Playwright?.Dispose();
     }
 
-    /// <summary>
-    /// Returns true when the acceptance test run targets SQLite (e.g. ARM SQLite CI job).
-    /// </summary>
-    private static bool IsSqliteMode()
-    {
-        if (string.Equals(Environment.GetEnvironmentVariable("DATABASE_ENGINE"), "SQLite", StringComparison.OrdinalIgnoreCase))
-            return true;
+    // ─────────────────────────────────────────────────────────────────────────
+    // Data seeding
+    // ─────────────────────────────────────────────────────────────────────────
 
-        var connStr = Environment.GetEnvironmentVariable("ConnectionStrings__SqlConnectionString") ?? "";
-        return connStr.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
+    private static void SeedTestData(string connectionString)
+    {
+        var config = new LiteralDatabaseConfiguration(connectionString);
+        using var context = new DataContext(config);
+
+        new DatabaseEmptier(context.Database).DeleteAllData();
+
+        foreach (var employee in BuildEmployees())
+            context.Add(employee);
+
+        context.SaveChanges();
+    }
+
+    private static IEnumerable<Employee> BuildEmployees()
+    {
+        yield return new Employee("jpalermo", "Jeffrey Palermo");
+        yield return new Employee("sspaniel", "Sean Spaniel");
+        yield return new Employee("hsimpson", "Homer Simpson");
+        yield return new Employee("tlovejoy", "Timothy Lovejoy Jr");
+        yield return new Employee("gwillie", "Groundskeeper Willie MacDougal");
+        yield return new Employee("nflanders", "Ned Flanders");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // dotnet run startup (used for both SQL Server and SQLite modes)
+    // Process startup
     // ─────────────────────────────────────────────────────────────────────────
 
-    private async Task StartViaDotnetRunAsync(bool sqliteMode)
+    private static async Task WaitForServerAsync(string baseUrl)
     {
-        var configuration = TestHost.GetRequiredService<IConfiguration>();
-        ApplicationBaseUrl = configuration["ApplicationBaseUrl"] ?? "https://localhost:7174";
-
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__SqlConnectionString")
-            ?? configuration.GetConnectionString("SqlConnectionString")
-            ?? (sqliteMode ? "Data Source=AISoftwareFactory.db" : throw new InvalidOperationException("ConnectionStrings__SqlConnectionString is required for SQL Server mode"));
-
-        if (sqliteMode)
-        {
-            // Resolve SQLite path to absolute so the server process uses the same file.
-            if (!connectionString.Contains(":memory:", StringComparison.OrdinalIgnoreCase))
-            {
-                var dbPath = connectionString["Data Source=".Length..].Trim();
-                var semicolonIndex = dbPath.IndexOf(';');
-                if (semicolonIndex >= 0) dbPath = dbPath[..semicolonIndex];
-                if (!Path.IsPathRooted(dbPath))
-                {
-                    var absolutePath = Path.GetFullPath(dbPath);
-                    connectionString = $"Data Source={absolutePath}";
-                }
-            }
-
-            // Publish the absolute path so TestHost's IConfiguration (which reads env vars)
-            // resolves the same database file when ZDataLoader seeds data.
-            Environment.SetEnvironmentVariable("ConnectionStrings__SqlConnectionString", connectionString);
-        }
-
-        // Seed test data before starting the server.
-        if (sqliteMode)
-            InitializeDatabaseOnce(connectionString);
-        else
-            SeedSqlServerTestData(connectionString);
-
-        var buildConfig = GetBuildConfiguration();
-
-        // For SQLite: use --no-launch-profile to prevent launchSettings.json from
-        // overriding connection strings; inject settings manually via env vars.
-        // For SQL Server: use the default launch profile so the server starts normally.
-        var arguments = sqliteMode
-            ? $"run --no-build --configuration {buildConfig} --no-launch-profile --urls={ApplicationBaseUrl}"
-            : $"run --no-build --configuration {buildConfig} --urls={ApplicationBaseUrl}";
-
-        _serverProcess = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = arguments,
-                WorkingDirectory = UiServerProjectPath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        _serverProcess.StartInfo.Environment["ConnectionStrings__SqlConnectionString"] = connectionString;
-
-        if (sqliteMode)
-        {
-            _serverProcess.StartInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
-            _serverProcess.StartInfo.Environment["APPLICATIONINSIGHTS_CONNECTION_STRING"] =
-                "InstrumentationKey=00000000-0000-0000-0000-000000000000";
-        }
-
-        _serverProcess.Start();
-
-        // Wait for the server to respond.
         var handler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
@@ -172,8 +138,8 @@ public class ServerFixture
         {
             try
             {
-                var response = await client.GetAsync(ApplicationBaseUrl);
-                if (response.IsSuccessStatusCode) break;
+                var response = await client.GetAsync(baseUrl);
+                if (response.IsSuccessStatusCode) return;
             }
             catch (Exception ex)
             {
@@ -183,32 +149,20 @@ public class ServerFixture
             await Task.Delay(1000);
         }
 
-        if (DateTime.UtcNow >= deadline)
-            throw new Exception($"UI.Server did not start within {WaitTimeoutSeconds}s. Last exception: {lastEx}");
-
-        if (!sqliteMode)
-        {
-            await StartWorkerAsync(connectionString);
-            WorkerStarted = true;
-        }
+        throw new Exception($"UI.Server did not start within {WaitTimeoutSeconds}s. Last exception: {lastEx}");
     }
 
-    /// <summary>
-    /// Starts the Worker process (NServiceBus message handler host).
-    /// Worker requires SqlServerTransport and is skipped in SQLite mode.
-    /// </summary>
     private async Task StartWorkerAsync(string connectionString)
     {
         TestContext.Out.WriteLine("Worker: starting...");
         var buildConfig = GetBuildConfiguration();
-        var arguments = $"run --no-build --configuration {buildConfig} --no-launch-profile";
 
         _workerProcess = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = arguments,
+                Arguments = $"run --no-build --configuration {buildConfig} --no-launch-profile",
                 WorkingDirectory = WorkerProjectPath,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -228,7 +182,6 @@ public class ServerFixture
         _workerProcess.StartInfo.Environment["AI_OpenAI_Model"] = "";
 
         var readySignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-
         _workerProcess.OutputDataReceived += (_, e) =>
         {
             if (e.Data == null) return;
@@ -249,15 +202,9 @@ public class ServerFixture
         var completed = await Task.WhenAny(readySignal.Task, timeout);
 
         if (completed == timeout)
-        {
-            TestContext.Out.WriteLine(
-                $"Worker: did not detect startup confirmation within {WaitTimeoutSeconds}s. " +
-                "Proceeding anyway — SqlServerTransport is durable.");
-        }
+            TestContext.Out.WriteLine($"Worker: did not detect startup confirmation within {WaitTimeoutSeconds}s. Proceeding anyway.");
         else
-        {
             TestContext.Out.WriteLine("Worker: started successfully.");
-        }
     }
 
     private static string GetBuildConfiguration() =>
@@ -267,61 +214,9 @@ public class ServerFixture
             : "Debug";
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Data seeding
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Seeds test data into the SQL Server database. The database and schema are
-    /// already created by Setup-DatabaseForBuild; only employee rows are needed here.
-    /// </summary>
-    private static void SeedSqlServerTestData(string connectionString)
-    {
-        var config = new LiteralDatabaseConfiguration(connectionString);
-        using var context = new DataContext(config);
-
-        new DatabaseEmptier(context.Database).DeleteAllData();
-        foreach (var employee in BuildEmployees())
-            context.Add(employee);
-
-        context.SaveChanges();
-    }
-
-    /// <summary>
-    /// Initialises the SQLite database (EnsureCreated + seed) for the SQLite path.
-    /// </summary>
-    private static void InitializeDatabaseOnce(string connectionString)
-    {
-        var config = new LiteralDatabaseConfiguration(connectionString);
-        using var context = new DataContext(config);
-
-        var isSqlite = context.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
-        if (isSqlite) context.Database.EnsureCreated();
-
-        new ZDataLoader().LoadData();
-        TestContext.Out.WriteLine("ZDataLoader().LoadData(); - complete");
-        config.ResetConnectionPool();
-    }
-
-    private static IEnumerable<Employee> BuildEmployees()
-    {
-        yield return new Employee("jpalermo", "Jeffrey Palermo");
-        yield return new Employee("sspaniel", "Sean Spaniel");
-        yield return new Employee("hsimpson", "Homer Simpson");
-        yield return new Employee("tlovejoy", "Timothy Lovejoy Jr");
-        yield return new Employee("gwillie", "Groundskeeper Willie MacDougal");
-        yield return new Employee("nflanders", "Ned Flanders");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // Health gate
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Verifies the application is reachable and healthy before tests start.
-    /// Checks the site root and the /_healthcheck endpoint (which validates database
-    /// connectivity). Fails fast with a clear diagnostic message instead of letting
-    /// tests hang on an unreachable or unhealthy server.
-    /// </summary>
     private static async Task VerifyApplicationHealthy()
     {
         const int maxAttempts = 3;
@@ -358,8 +253,7 @@ public class ServerFixture
             var detail = lastSiteException != null
                 ? $"Last exception: {lastSiteException.GetType().Name}: {lastSiteException.Message}"
                 : $"Last status code: {siteResponse?.StatusCode}";
-            Assert.Fail(
-                $"Health gate FAILED: Site is not reachable at {ApplicationBaseUrl} after {maxAttempts} attempts. {detail}");
+            Assert.Fail($"Health gate FAILED: Site is not reachable at {ApplicationBaseUrl} after {maxAttempts} attempts. {detail}");
         }
 
         TestContext.Out.WriteLine("Health gate: verifying /_healthcheck...");
@@ -390,8 +284,7 @@ public class ServerFixture
             var detail = lastHealthException != null
                 ? $"Last exception: {lastHealthException.GetType().Name}: {lastHealthException.Message}"
                 : $"Body: {healthBody}";
-            Assert.Fail(
-                $"Health gate FAILED: /_healthcheck did not return Healthy or Degraded after {maxAttempts} attempts. {detail}");
+            Assert.Fail($"Health gate FAILED: /_healthcheck did not return Healthy or Degraded after {maxAttempts} attempts. {detail}");
         }
 
         TestContext.Out.WriteLine("Health gate: PASSED - site is reachable and healthy.");
@@ -423,10 +316,6 @@ public class ServerFixture
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Minimal <see cref="IDatabaseConfiguration"/> that wraps a literal connection string
-    /// for use during test data seeding, without requiring the full DI container.
-    /// </summary>
     private sealed class LiteralDatabaseConfiguration(string connectionString) : IDatabaseConfiguration
     {
         public string GetConnectionString() => connectionString;

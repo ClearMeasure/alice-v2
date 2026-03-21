@@ -28,10 +28,6 @@ $test_dir = Join-Path $build_dir "test"
 $databaseAction = $env:DatabaseAction
 if ([string]::IsNullOrEmpty($databaseAction)) { $databaseAction = "Rebuild" }
 
-if (Test-IsArmArchitecture) {
-	$env:database_engine = "SQLite"
-	$env:DATABASE_ENGINE = "SQLite"
-}
 $script:databaseEngine = $env:DATABASE_ENGINE
 
 $databaseName = $projectName
@@ -62,16 +58,9 @@ Function Init {
 		$script:databaseServer = Get-DefaultDatabaseServer -engine $script:databaseEngine
 	}
 
-	switch ($script:databaseEngine) {
-		"SQL-Container" {
-			if (-not (Test-IsDockerRunning)) {
-				throw "Docker is not running. Start Docker (for example, Docker Desktop) so the container-based SQL Server required for 'SQL-Container' builds can run, then rerun this build script."
-			}
-		}
-		"SQLite" {
-			if ([string]::IsNullOrEmpty($env:ConnectionStrings__SqlConnectionString)) {
-				$env:ConnectionStrings__SqlConnectionString = "Data Source=AISoftwareFactory.db"
-			}
+	if ($script:databaseEngine -eq "SQL-Container") {
+		if (-not (Test-IsDockerRunning)) {
+			throw "Docker is not running. Start Docker (for example, Docker Desktop) so the container-based SQL Server required for 'SQL-Container' builds can run, then rerun this build script."
 		}
 	}
 
@@ -138,19 +127,10 @@ Function IntegrationTest {
 
 	try {
 		exec {
-			if ($script:useSqlite) {
-				& dotnet test /p:CopyLocalLockFileAssemblies=true -nologo -v $verbosity --logger:trx `
-					--results-directory $(Join-Path $test_dir "IntegrationTests") --no-build `
-					--no-restore --configuration $projectConfig `
-					--collect:"XPlat Code Coverage" `
-					--filter "TestCategory!=SqlServerOnly"
-			}
-			else {
-				& dotnet test /p:CopyLocalLockFileAssemblies=true -nologo -v $verbosity --logger:trx `
-					--results-directory $(Join-Path $test_dir "IntegrationTests") --no-build `
-					--no-restore --configuration $projectConfig `
-					--collect:"XPlat Code Coverage"
-			}
+			& dotnet test /p:CopyLocalLockFileAssemblies=true -nologo -v $verbosity --logger:trx `
+				--results-directory $(Join-Path $test_dir "IntegrationTests") --no-build `
+				--no-restore --configuration $projectConfig `
+				--collect:"XPlat Code Coverage"
 		}
 	}
 	finally {
@@ -185,24 +165,15 @@ Function Build {
 		[string]$databaseServer = "",
 
 		[Parameter(Mandatory = $false)]
-		[string]$databaseName = "",
-
-		[Parameter(Mandatory = $false)]
-		[switch]$UseSqlite
+		[string]$databaseName = ""
 	)
-
-	if ($UseSqlite) {
-		$script:databaseEngine = "SQLite"
-	}
 
 	Resolve-DatabaseEngine
 
-	if ($script:databaseEngine -ne "SQLite") {
-		if (-not [string]::IsNullOrEmpty($databaseServer)) {
-			$script:databaseServer = $databaseServer
-		}
-		$script:databaseName = Get-ResolvedDatabaseName -explicitName $databaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild (Test-IsLocalBuild)
+	if (-not [string]::IsNullOrEmpty($databaseServer)) {
+		$script:databaseServer = $databaseServer
 	}
+	$script:databaseName = Get-ResolvedDatabaseName -explicitName $databaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild (Test-IsLocalBuild)
 
 	$script:buildStopwatch = [Diagnostics.Stopwatch]::StartNew()
 
@@ -214,20 +185,13 @@ Function Build {
 
 	$script:buildStopwatch.Stop()
 	$elapsed = $script:buildStopwatch.Elapsed.ToString()
-	if ($script:databaseEngine -eq "SQLite") {
-		Log-Message -Message "BUILD SUCCEEDED (SQLite) - Build time: $elapsed" -Type "INFO"
-	}
-	else {
-		Log-Message -Message "BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
-	}
+	Log-Message -Message "BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
 }
 
 Function Invoke-CIBuild {
 	Resolve-DatabaseEngine
 
-	if ($script:databaseEngine -ne "SQLite") {
-		$script:databaseName = Get-ResolvedDatabaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild $false
-	}
+	$script:databaseName = Get-ResolvedDatabaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild $false
 
 	$script:buildStopwatch = [Diagnostics.Stopwatch]::StartNew()
 
@@ -239,12 +203,7 @@ Function Invoke-CIBuild {
 
 	$script:buildStopwatch.Stop()
 	$elapsed = $script:buildStopwatch.Elapsed.ToString()
-	if ($script:databaseEngine -eq "SQLite") {
-		Log-Message -Message "BUILD SUCCEEDED (SQLite) - Build time: $elapsed" -Type "INFO"
-	}
-	else {
-		Log-Message -Message "BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
-	}
+	Log-Message -Message "BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
 }
 
 # ── Helper Functions (in call order) ────────────────────────────────────────────
@@ -256,7 +215,6 @@ Function Resolve-DatabaseEngine {
 		$dockerAvailable = Test-IsDockerRunning
 	}
 	$script:databaseEngine = Get-ResolvedDatabaseEngine -currentEngine $script:databaseEngine -onLinux $onLinux -dockerAvailable $dockerAvailable
-	$script:useSqlite = ($script:databaseEngine -eq "SQLite")
 }
 
 Function MigrateDatabaseLocal {
@@ -379,27 +337,18 @@ Function Invoke-AcceptanceTests {
 		[Parameter(Mandatory = $false)]
 		[string]$databaseServer = "",
 		[Parameter(Mandatory=$false)]
-		[string]$databaseName ="",
-
-		[Parameter(Mandatory = $false)]
-		[switch]$UseSqlite
+		[string]$databaseName =""
 	)
 
 	$projectConfig = "Release"
 	$sw = [Diagnostics.Stopwatch]::StartNew()
 
-	if ($UseSqlite) {
-		$script:databaseEngine = "SQLite"
-	}
-
 	Resolve-DatabaseEngine
 
-	if ($script:databaseEngine -ne "SQLite") {
-		if (-not [string]::IsNullOrEmpty($databaseServer)) {
-			$script:databaseServer = $databaseServer
-		}
-		$script:databaseName = Get-ResolvedDatabaseName -explicitName $databaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild (Test-IsLocalBuild)
+	if (-not [string]::IsNullOrEmpty($databaseServer)) {
+		$script:databaseServer = $databaseServer
 	}
+	$script:databaseName = Get-ResolvedDatabaseName -explicitName $databaseName -baseName $projectName -onLinux (Test-IsLinux) -localBuild (Test-IsLocalBuild)
 
 	Init
 	Compile
@@ -408,12 +357,7 @@ Function Invoke-AcceptanceTests {
 
 	$sw.Stop()
 	$elapsed = $sw.Elapsed.ToString()
-	if ($script:databaseEngine -eq "SQLite") {
-		Log-Message -Message "ACCEPTANCE BUILD SUCCEEDED (SQLite) - Build time: $elapsed" -Type "INFO"
-	}
-	else {
-		Log-Message -Message "ACCEPTANCE BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
-	}
+	Log-Message -Message "ACCEPTANCE BUILD SUCCEEDED - Build time: $elapsed" -Type "INFO"
 }
 
 Function Create-SqlServerInDocker {

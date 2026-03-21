@@ -29,19 +29,12 @@ endpointConfiguration.UseSerialization<SystemJsonSerializer>();
 endpointConfiguration.EnableInstallers();
 endpointConfiguration.EnableOpenTelemetry();
 
-var sqlConnectionString = builder.Configuration.GetConnectionString("SqlConnectionString") ?? "";
-if (sqlConnectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
-{
-    endpointConfiguration.UseTransport<LearningTransport>()
-        .StorageDirectory(Path.Combine(Path.GetTempPath(), "NServiceBus.Learning"));
-}
-else
-{
-    var transport = endpointConfiguration.UseTransport<SqlServerTransport>();
-    transport.ConnectionString(sqlConnectionString);
-    transport.DefaultSchema("nServiceBus");
-    transport.Transactions(TransportTransactionMode.TransactionScope);
-}
+var sqlConnectionString = builder.Configuration.GetConnectionString("SqlConnectionString")
+    ?? throw new InvalidOperationException("SqlConnectionString is required");
+var transport = endpointConfiguration.UseTransport<SqlServerTransport>();
+transport.ConnectionString(sqlConnectionString);
+transport.DefaultSchema("nServiceBus");
+transport.Transactions(TransportTransactionMode.TransactionScope);
 
 var conventions = new MessagingConventions();
 endpointConfiguration.Conventions().Add(conventions);

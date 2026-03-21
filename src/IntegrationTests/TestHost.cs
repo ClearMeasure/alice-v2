@@ -77,23 +77,14 @@ public static class TestHost
                 endpointConfiguration.UseSerialization<SystemJsonSerializer>();
                 endpointConfiguration.EnableInstallers();
 
-                var connectionString = context.Configuration.GetConnectionString("SqlConnectionString") ?? "";
-                if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
-                {
-                    var learningTransport = endpointConfiguration.UseTransport<LearningTransport>();
-                    learningTransport.StorageDirectory(Path.Combine(Path.GetTempPath(), "NServiceBus.Learning"));
-                    learningTransport.Routing()
-                        .RouteToEndpoint(typeof(TracerBulletCommand), WorkerEndpointName);
-                }
-                else
-                {
-                    var transport = endpointConfiguration.UseTransport<SqlServerTransport>();
-                    transport.ConnectionString(connectionString);
-                    transport.DefaultSchema("nServiceBus");
-                    transport.Transactions(TransportTransactionMode.TransactionScope);
-                    transport.Routing()
-                        .RouteToEndpoint(typeof(TracerBulletCommand), WorkerEndpointName);
-                }
+                var connectionString = context.Configuration.GetConnectionString("SqlConnectionString")
+                    ?? throw new InvalidOperationException("SqlConnectionString is required");
+                var transport = endpointConfiguration.UseTransport<SqlServerTransport>();
+                transport.ConnectionString(connectionString);
+                transport.DefaultSchema("nServiceBus");
+                transport.Transactions(TransportTransactionMode.TransactionScope);
+                transport.Routing()
+                    .RouteToEndpoint(typeof(TracerBulletCommand), WorkerEndpointName);
 
                 var conventions = new MessagingConventions();
                 endpointConfiguration.Conventions().Add(conventions);

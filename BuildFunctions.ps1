@@ -526,7 +526,7 @@ Function Get-ResolvedDatabaseEngine {
     .PARAMETER dockerAvailable
         Whether Docker is installed and running.
     .OUTPUTS
-        [string] One of: "LocalDB", "SQL-Container", "SQLite"
+        [string] One of: "LocalDB", "SQL-Container"
     #>
     param (
         [Parameter(Mandatory = $false)]
@@ -540,14 +540,14 @@ Function Get-ResolvedDatabaseEngine {
     if ([string]::IsNullOrEmpty($currentEngine)) {
         if ($onLinux) {
             if ($dockerAvailable) { return "SQL-Container" }
-            else { return "SQLite" }
+            else { throw "Docker is required on Linux but is not available. Start Docker and retry." }
         }
         else {
             return "LocalDB"
         }
     }
 
-    $validEngines = @("LocalDB", "SQL-Container", "SQLite")
+    $validEngines = @("LocalDB", "SQL-Container")
     if ($currentEngine -notin $validEngines) {
         throw "Invalid DATABASE_ENGINE value '$currentEngine'. Valid values: $($validEngines -join ', ')"
     }
@@ -559,9 +559,9 @@ Function Get-DefaultDatabaseServer {
     .SYNOPSIS
         Returns the default database server name for a given engine type.
     .PARAMETER engine
-        The database engine: "LocalDB", "SQL-Container", or "SQLite".
+        The database engine: "LocalDB" or "SQL-Container".
     .OUTPUTS
-        [string] The default server name, or empty string for SQLite.
+        [string] The default server name.
     #>
     param (
         [Parameter(Mandatory = $true)]
@@ -571,7 +571,7 @@ Function Get-DefaultDatabaseServer {
     switch ($engine) {
         "LocalDB"       { return "(LocalDb)\MSSQLLocalDB" }
         "SQL-Container" { return "localhost" }
-        default         { return "" }
+        default         { throw "Unknown database engine '$engine'" }
     }
 }
 
