@@ -98,6 +98,13 @@ public static class TestHost
                 var conventions = new MessagingConventions();
                 endpointConfiguration.Conventions().Add(conventions);
 
+                // Exclude Blazor WASM hot-reload DLL that is listed in deps.json but
+                // never copied to the test output directory (it is only deployed with
+                // the browser app). NServiceBus assembly scanning would fail trying to
+                // open the missing file if this exclusion were not present.
+                endpointConfiguration.AssemblyScanner()
+                    .ExcludeAssemblies("Microsoft.DotNet.HotReload.WebAssembly.Browser.dll");
+
                 return endpointConfiguration;
             })
             .Build();
