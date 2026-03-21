@@ -211,6 +211,10 @@ jobs:
           $version = "${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ github.run_number }}"
           "BUILD_BUILDNUMBER=$version" >> $env:GITHUB_ENV
 
+      - name: Pre-pull SQL Server Docker image
+        shell: pwsh
+        run: docker pull mcr.microsoft.com/mssql/server:2022-latest
+
       - name: Run Private Build (Windows AppHost)
         shell: pwsh
         env:

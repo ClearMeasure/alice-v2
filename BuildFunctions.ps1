@@ -293,13 +293,18 @@ Function Start-AppHostEnvironment {
     $env:NGROK_AUTHTOKEN = ""
 
     try {
-        $process = Start-Process -FilePath "dotnet" `
-            -ArgumentList "run --no-build --configuration Release" `
-            -WorkingDirectory $appHostProjectPath `
-            -RedirectStandardOutput $stdoutLog `
-            -RedirectStandardError $stderrLog `
-            -WindowStyle Hidden `
-            -PassThru
+        $startProcessArgs = @{
+            FilePath              = "dotnet"
+            ArgumentList          = "run --no-build --configuration Release"
+            WorkingDirectory      = $appHostProjectPath
+            RedirectStandardOutput = $stdoutLog
+            RedirectStandardError  = $stderrLog
+            PassThru              = $true
+        }
+        if ($IsWindows) {
+            $startProcessArgs['WindowStyle'] = 'Hidden'
+        }
+        $process = Start-Process @startProcessArgs
     }
     finally {
         $env:DOTNET_ENVIRONMENT = $previousDotnetEnvironment
@@ -309,7 +314,7 @@ Function Start-AppHostEnvironment {
         $env:NGROK_AUTHTOKEN = $previousNgrokAuthToken
     }
 
-    $timeout = [TimeSpan]::FromMinutes(2)
+    $timeout = [TimeSpan]::FromMinutes(5)
     $deadline = [DateTime]::UtcNow.Add($timeout)
     while ([DateTime]::UtcNow -lt $deadline) {
         if (Test-AppHostHealthy) {
@@ -351,26 +356,6 @@ Function Stop-AppHostEnvironment {
     }
 }
 
-
-Function New-SqlServerDatabase {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$serverName,
-        [Parameter(Mandatory = $true)]
-        [string]$databaseName
-    )
-
-    throw "Direct database provisioning has been removed. Start the development environment through src\AppHost instead."
-}
-
-Function New-DockerContainerForSqlServer {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$containerName
-    )
-
-    throw "Direct database provisioning has been removed. Start the development environment through src\AppHost instead."
-}
 
 Function Test-IsDockerRunning {
     <#
@@ -533,39 +518,18 @@ function Join-PathSegments {
     return $result
 }
 
-Function Test-IsArmArchitecture {
-    <#
-    .SYNOPSIS
-        Tests if the current system is running on ARM architecture.
-    .OUTPUTS
-        [bool] True if ARM or ARM64, False otherwise.
-    #>
-    return [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -in @(
-        [System.Runtime.InteropServices.Architecture]::Arm,
-        [System.Runtime.InteropServices.Architecture]::Arm64
-    )
-}
-
 Function Get-ResolvedDatabaseEngine {
     <#
     .SYNOPSIS
-        Determines the database engine to use based on environment and capabilities.
+        Determines the database engine to use for the standardized AppHost flow.
     .PARAMETER currentEngine
         The currently configured engine value (from DATABASE_ENGINE env var), or empty string.
-    .PARAMETER onLinux
-        Whether the current platform is Linux.
-    .PARAMETER dockerAvailable
-        Whether Docker is installed and running.
     .OUTPUTS
         [string] "AppHost"
     #>
     param (
         [Parameter(Mandatory = $false)]
-        [string]$currentEngine = "",
-        [Parameter(Mandatory = $false)]
-        [bool]$onLinux = $false,
-        [Parameter(Mandatory = $false)]
-        [bool]$dockerAvailable = $false
+        [string]$currentEngine = ""
     )
 
     if ([string]::IsNullOrEmpty($currentEngine)) {
@@ -586,7 +550,7 @@ Function Get-DefaultDatabaseServer {
     .PARAMETER engine
         The database engine: "AppHost".
     .OUTPUTS
-        [string] The default server name, or empty string for SQLite.
+        [string] The default server name.
     #>
     param (
         [Parameter(Mandatory = $true)]
