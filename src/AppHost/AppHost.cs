@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 // Set environment variables for the dashboard to avoid configuration errors
 Environment.SetEnvironmentVariable("ASPNETCORE_URLS", "http://localhost:5000");
 Environment.SetEnvironmentVariable("ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL", "http://localhost:4318");
+Environment.SetEnvironmentVariable("ASPIRE_ALLOW_UNSECURED_TRANSPORT", "true");
 
 var builder = DistributedApplication.CreateBuilder(args);
 
