@@ -8,6 +8,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 // SQL Server Docker container.  ContainerLifetime.Persistent keeps the container alive
 // between Aspire restarts so data is preserved across sessions.
 var sqlPassword = builder.AddParameter("sql-password", secret: true);
+var appHostStartupMode = Environment.GetEnvironmentVariable("APPHOST_STARTUP_MODE") ?? "full";
+var containersOnly = string.Equals(appHostStartupMode, "containersonly", StringComparison.OrdinalIgnoreCase);
 
 var sql = builder.AddSqlServer("sql", sqlPassword)
     .WithContainerName("aisoftwarefactory-mssql")
@@ -16,12 +18,13 @@ var sql = builder.AddSqlServer("sql", sqlPassword)
 
 var sqlDb = sql.AddDatabase("SqlConnectionString", databaseName: "AISoftwareFactory");
 
-var appInsights = builder.AddConnectionString("AppInsights");
+if (containersOnly)
+{
+    builder.Build().Run();
+    return;
+}
 
-var migrations = builder.AddProject<Projects.Database>("database")
-    .WithReference(sqlDb)
-    .WaitFor(sql)
-    .WithArgs("update");
+var appInsights = builder.AddConnectionString("AppInsights");
 
 // Compute a stable, DNS-safe ngrok subdomain.
 // In CI the BUILD_NUMBER / BUILD_BUILDNUMBER / GITHUB_RUN_NUMBER env vars supply a build
@@ -32,36 +35,41 @@ var ngrokSubdomain = ComputeNgrokSubdomain();
 // Ngrok container: tunnels HTTP traffic from <subdomain>.ngrok.app to the local UI.Server.
 // The UI.Server is exposed on a fixed HTTP port (5174) so the container can reach it via
 // host.docker.internal.  Port 4040 is the ngrok local agent API used by the health check.
-var ngrokAuthToken = Environment.GetEnvironmentVariable("NGROK_AUTHTOKEN") ?? string.Empty;
-
-var ngrok = builder.AddContainer("ngrok", "ngrok/ngrok")
-    .WithEnvironment("NGROK_AUTHTOKEN", ngrokAuthToken)
-    .WithArgs(
-        "http",
-        "--domain", $"{ngrokSubdomain}.ngrok.app",
-        "--log", "stdout",
-        "http://host.docker.internal:5174")
-    // --add-host is required on Linux (Docker Engine) so that host.docker.internal
-    // resolves to the host machine's gateway IP.
-    .WithContainerRuntimeArgs("--add-host=host.docker.internal:host-gateway")
-    .WithHttpEndpoint(port: 4040, targetPort: 4040, name: "dashboard");
-
 var uiServer = builder.AddProject<Projects.UI_Server>("ui-server")
     .WithReference(sqlDb)
     .WithReference(appInsights)
     // Fixed HTTP port so the ngrok container can reach the app via host.docker.internal.
-    .WithHttpEndpoint(port: 5174, name: "http")
-    .WithEnvironment("Ngrok__ApiUrl", "http://localhost:4040")
-    .WithEnvironment("Ngrok__Subdomain", ngrokSubdomain)
-    .WaitForCompletion(migrations);
+    .WithHttpEndpoint(port: 5174, name: "app-http")
+    .WithHttpsEndpoint(port: 7174, name: "app-https")
+    .WaitFor(sql);
 
-// Ngrok must start after UI.Server is ready so it has something to tunnel to.
-ngrok.WaitFor(uiServer);
+var ngrokAuthToken = Environment.GetEnvironmentVariable("NGROK_AUTHTOKEN") ?? string.Empty;
+if (!string.IsNullOrWhiteSpace(ngrokAuthToken))
+{
+    var ngrok = builder.AddContainer("ngrok", "ngrok/ngrok")
+        .WithEnvironment("NGROK_AUTHTOKEN", ngrokAuthToken)
+        .WithArgs(
+            "http",
+            "--domain", $"{ngrokSubdomain}.ngrok.app",
+            "--log", "stdout",
+            "http://host.docker.internal:5174")
+        // --add-host is required on Linux (Docker Engine) so that host.docker.internal
+        // resolves to the host machine's gateway IP.
+        .WithContainerRuntimeArgs("--add-host=host.docker.internal:host-gateway")
+        .WithHttpEndpoint(port: 4040, targetPort: 4040, name: "dashboard");
 
-builder.AddProject<Projects.Worker>("worker")
+    uiServer
+        .WithEnvironment("Ngrok__ApiUrl", "http://localhost:4040")
+        .WithEnvironment("Ngrok__Subdomain", ngrokSubdomain);
+
+    // Ngrok must start after UI.Server is ready so it has something to tunnel to.
+    ngrok.WaitFor(uiServer);
+}
+
+var worker = builder.AddProject<Projects.Worker>("worker")
     .WithReference(sqlDb)
     .WithReference(appInsights)
-    .WaitForCompletion(migrations);
+    .WaitFor(sql);
 
 builder.Build().Run();
 

@@ -9,21 +9,10 @@ namespace ClearMeasure.Bootcamp.AcceptanceTests;
 [SetUpFixture]
 public class ServerFixture
 {
-    private const string ProjectPath = "../../../../UI/Server";
-    private const string WorkerProjectPath = "../../../../Worker";
-    private const int WaitTimeoutSeconds = 60;
-
-    private static string BuildConfiguration =>
-        AppDomain.CurrentDomain.BaseDirectory.Contains(
-            Path.DirectorySeparatorChar + "Release" + Path.DirectorySeparatorChar)
-            ? "Release"
-            : "Debug";
-    public static bool StartLocalServer { get; set; } = true;
+    public static bool StartAppHost { get; set; } = true;
     public static int SlowMo { get; set; } = 100;
     public static string ApplicationBaseUrl { get; private set; } = string.Empty;
-    private Process? _serverProcess;
-    private Process? _workerProcess;
-    public static bool StartWorker { get; set; } = true;
+    private Process? _appHostProcess;
     public static bool WorkerStarted { get; private set; }
     public static bool SkipScreenshotsForSpeed { get; set; } = true;
     public static bool HeadlessTestBrowser { get; set; } = true;
@@ -38,24 +27,41 @@ public class ServerFixture
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
-        InitializeDatabaseOnce();
+        var bootstrapConfiguration = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.acceptancetests.json", optional: false, reloadOnChange: false)
+            .AddEnvironmentVariables()
+            .Build();
+        ApplicationBaseUrl = bootstrapConfiguration["ApplicationBaseUrl"] ?? throw new InvalidOperationException();
+        StartAppHost = bootstrapConfiguration.GetValue("StartAppHost", true);
+
+        if (StartAppHost)
+        {
+            var healthUrl = $"{ApplicationBaseUrl}/_healthcheck";
+            if (await AppHostHarness.IsHealthyAsync(healthUrl))
+            {
+                TestContext.Out.WriteLine("AppHost: reusing running instance.");
+            }
+            else
+            {
+                TestContext.Out.WriteLine("AppHost: starting...");
+                _appHostProcess = await AppHostHarness.StartAsync(ApplicationBaseUrl);
+            }
+
+            AppHostHarness.SetSqlConnectionStringEnvironmentVariable();
+            WorkerStarted = true;
+        }
+
         var configuration = TestHost.GetRequiredService<IConfiguration>();
-        ApplicationBaseUrl = configuration["ApplicationBaseUrl"] ?? throw new InvalidOperationException();
-        StartLocalServer = configuration.GetValue<bool>("StartLocalServer");
-        StartWorker = configuration.GetValue("StartWorker", true);
         SkipScreenshotsForSpeed = configuration.GetValue<bool>("SkipScreenshotsForSpeed");
         SlowMo = configuration.GetValue<int>("SlowMo");
         HeadlessTestBrowser = configuration.GetValue<bool>("HeadlessTestBrowser");
 
-
-        Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-
-        if (StartLocalServer)
+        if (StartAppHost)
         {
-            await StartAndWaitForServer();
+            InitializeDatabaseOnce();
             await ResetServerDbConnections();
-            await StartAndWaitForWorker();
         }
+        Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
 
         await WarmUpContainerApp();
         await VerifyApplicationHealthy();
@@ -69,8 +75,6 @@ public class ServerFixture
     /// </summary>
     private static async Task WarmUpContainerApp()
     {
-        if (StartLocalServer) return; // local server is already warmed by StartAndWaitForServer
-
         var handler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
@@ -188,201 +192,6 @@ public class ServerFixture
         body.Contains("Healthy", StringComparison.OrdinalIgnoreCase) ||
         body.Contains("Degraded", StringComparison.OrdinalIgnoreCase);
 
-    private async Task StartAndWaitForServer()
-    {
-        var configuration = TestHost.GetRequiredService<IConfiguration>();
-        var connectionString = configuration.GetConnectionString("SqlConnectionString") ?? "";
-        var useSqlite = connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
-
-        // Use --no-build to skip recompilation (already built by the build script)
-        // and --no-launch-profile to prevent launchSettings.json from overriding
-        // environment variables (e.g. connection strings) set by the test harness
-        var config = BuildConfiguration;
-        var arguments = useSqlite
-            ? $"run --no-build --configuration {config} --no-launch-profile --urls={ApplicationBaseUrl}"
-            : $"run --no-build --configuration {config} --urls={ApplicationBaseUrl}";
-
-        _serverProcess = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = arguments,
-                WorkingDirectory = ProjectPath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-        _serverProcess.StartInfo.Environment["DISABLE_AUTO_CANCEL_AGENT"] = "true";
-
-        if (useSqlite)
-        {
-            _serverProcess.StartInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
-
-            // Provide a dummy Application Insights connection string to prevent the
-            // Azure Monitor exporter from throwing when --no-launch-profile is used
-            _serverProcess.StartInfo.Environment["APPLICATIONINSIGHTS_CONNECTION_STRING"] =
-                "InstrumentationKey=00000000-0000-0000-0000-000000000000";
-
-            // For SQLite file-based databases, resolve to absolute path so the server
-            // process uses the same database file regardless of its working directory
-            if (!connectionString.Contains(":memory:", StringComparison.OrdinalIgnoreCase))
-            {
-                var dbPath = connectionString["Data Source=".Length..].Trim();
-                var semicolonIndex = dbPath.IndexOf(';');
-                if (semicolonIndex >= 0) dbPath = dbPath[..semicolonIndex];
-
-                if (!Path.IsPathRooted(dbPath))
-                {
-                    var absolutePath = Path.GetFullPath(dbPath);
-                    connectionString = $"Data Source={absolutePath}";
-                }
-            }
-
-            _serverProcess.StartInfo.Environment["ConnectionStrings__SqlConnectionString"] = connectionString;
-        }
-
-        _serverProcess.Start();
-
-        // Wait for server to be ready
-        var handler = new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        };
-        using var client = new HttpClient(handler);
-        var baseUrl = ApplicationBaseUrl;
-        var timeout = TimeSpan.FromSeconds(WaitTimeoutSeconds);
-        var start = DateTime.UtcNow;
-        Exception? lastException = null;
-        while (DateTime.UtcNow - start < timeout)
-        {
-            try
-            {
-                var response = await client.GetAsync(baseUrl);
-                if (response.IsSuccessStatusCode)
-                    return;
-            }
-            catch (Exception ex)
-            {
-                lastException = ex;
-            }
-
-            await Task.Delay(1000);
-        }
-
-        throw new Exception(
-            $"UI.Server did not start in {WaitTimeoutSeconds} seconds. Last exception: {lastException}");
-    }
-
-    /// <summary>
-    /// Starts the Worker process (NServiceBus message handler host) alongside the UI.Server.
-    /// Worker requires SqlServerTransport, so it is skipped when using SQLite.
-    /// The Worker's RemotableBus calls back to UI.Server, so UI.Server must be started first.
-    /// </summary>
-    private async Task StartAndWaitForWorker()
-    {
-        var configuration = TestHost.GetRequiredService<IConfiguration>();
-        var connectionString = configuration.GetConnectionString("SqlConnectionString") ?? "";
-        var useSqlite = connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
-
-        if (!StartWorker)
-        {
-            TestContext.Out.WriteLine("Worker: skipped (StartWorker=false).");
-            return;
-        }
-
-        if (useSqlite)
-        {
-            TestContext.Out.WriteLine("Worker: skipped (SQLite mode — Worker requires SqlServerTransport).");
-            return;
-        }
-
-        TestContext.Out.WriteLine("Worker: starting...");
-        var config = BuildConfiguration;
-        var arguments = $"run --no-build --configuration {config} --no-launch-profile";
-
-        _workerProcess = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = arguments,
-                WorkingDirectory = WorkerProjectPath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        // Connection string for SqlServerTransport
-        _workerProcess.StartInfo.Environment["ConnectionStrings__SqlConnectionString"] = connectionString;
-
-        // Point Worker's RemotableBus back to the test UI.Server instance
-        _workerProcess.StartInfo.Environment["RemotableBus__ApiUrl"] =
-            $"{ApplicationBaseUrl}/api/blazor-wasm-single-api";
-
-        _workerProcess.StartInfo.Environment["DOTNET_ENVIRONMENT"] = "Development";
-        _workerProcess.StartInfo.Environment["DISABLE_AUTO_CANCEL_AGENT"] = "true";
-
-        // Provide a dummy Application Insights connection string to prevent the
-        // Azure Monitor exporter from throwing when --no-launch-profile is used
-        _workerProcess.StartInfo.Environment["APPLICATIONINSIGHTS_CONNECTION_STRING"] =
-            "InstrumentationKey=00000000-0000-0000-0000-000000000000";
-
-        // Prevent the Worker from trying to connect to Azure OpenAI
-        _workerProcess.StartInfo.Environment["AI_OpenAI_ApiKey"] = "";
-        _workerProcess.StartInfo.Environment["AI_OpenAI_Url"] = "";
-        _workerProcess.StartInfo.Environment["AI_OpenAI_Model"] = "";
-
-        _workerProcess.Start();
-
-        // Worker is a generic host (no HTTP endpoint to poll). Monitor stdout for the
-        // NServiceBus endpoint startup confirmation. NServiceBus logs when the endpoint
-        // is successfully started. As a safety net, SqlServerTransport is durable — any
-        // messages published before Worker is fully ready will be consumed once it starts.
-        var readySignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        _workerProcess.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data == null) return;
-            TestContext.Out.WriteLine($"  [Worker stdout] {e.Data}");
-            // NServiceBus logs the endpoint name when it starts successfully
-            if (e.Data.Contains("started", StringComparison.OrdinalIgnoreCase))
-            {
-                readySignal.TrySetResult(true);
-            }
-        };
-
-        _workerProcess.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-                TestContext.Out.WriteLine($"  [Worker stderr] {e.Data}");
-        };
-
-        _workerProcess.BeginOutputReadLine();
-        _workerProcess.BeginErrorReadLine();
-
-        // Wait for the ready signal or timeout
-        var timeout = Task.Delay(TimeSpan.FromSeconds(WaitTimeoutSeconds));
-        var completed = await Task.WhenAny(readySignal.Task, timeout);
-
-        if (completed == timeout)
-        {
-            TestContext.Out.WriteLine(
-                $"Worker: did not detect startup confirmation within {WaitTimeoutSeconds}s. " +
-                "Proceeding anyway — SqlServerTransport is durable and will deliver queued messages.");
-        }
-        else
-        {
-            TestContext.Out.WriteLine("Worker: started successfully.");
-        }
-
-        WorkerStarted = true;
-    }
-
     private static async Task ResetServerDbConnections()
     {
         var handler = new HttpClientHandler
@@ -403,12 +212,6 @@ public class ServerFixture
             if (DatabaseInitialized) return;
 
             using var context = TestHost.GetRequiredService<DbContext>();
-            var isSqlite = context.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
-            if (isSqlite)
-            {
-                context.Database.EnsureCreated();
-            }
-
             new ZDataLoader().LoadData();
             TestContext.Out.WriteLine("ZDataLoader().LoadData(); - complete");
 
@@ -423,14 +226,9 @@ public class ServerFixture
     [OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
-        // Stop Worker first (it calls back to UI.Server via RemotableBus)
-        await ProcessCleanupHelper.StopProcessAsync(_workerProcess);
-        try { _workerProcess?.Dispose(); } catch (ObjectDisposedException) { }
-        _workerProcess = null;
-
-        await ProcessCleanupHelper.StopServerProcessAsync(_serverProcess, ApplicationBaseUrl);
-        try { _serverProcess?.Dispose(); } catch (ObjectDisposedException) { }
-        _serverProcess = null;
+        await ProcessCleanupHelper.StopServerProcessAsync(_appHostProcess, ApplicationBaseUrl);
+        try { _appHostProcess?.Dispose(); } catch (ObjectDisposedException) { }
+        _appHostProcess = null;
         Playwright?.Dispose();
     }
 }

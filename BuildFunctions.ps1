@@ -223,123 +223,189 @@ Function Test-IsLocalBuild {
     return -not (Test-IsGitHubActions)
 }
 
+Function Get-AppHostProjectPath {
+    return Join-Path (Resolve-Path .\) "src\AppHost"
+}
 
-Function New-SqlServerDatabase {
+Function Get-DatabaseAssemblyPath {
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$serverName,
-        [Parameter(Mandatory = $true)]
-        [string]$databaseName
+        [Parameter(Mandatory = $false)]
+        [string]$Configuration = "Release",
+
+        [Parameter(Mandatory = $false)]
+        [string]$Framework = "net10.0"
     )
 
-    $containerName = Get-ContainerName -DatabaseName $databaseName
-    $sqlPassword = Get-SqlServerPassword -ContainerName $containerName
-    $saCred = New-object System.Management.Automation.PSCredential("sa", (ConvertTo-SecureString -String $sqlPassword -AsPlainText -Force))
-    
-    $dropDbCmd = @"
-IF EXISTS (SELECT name FROM sys.databases WHERE name = N'$databaseName')
-BEGIN
-    ALTER DATABASE [$databaseName] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE [$databaseName];
-END
-"@
+    return Join-PathSegments (Resolve-Path .\) "src" "Database" "bin" $Configuration $Framework "ClearMeasure.Bootcamp.Database.dll"
+}
 
-    $createDbCmd = "CREATE DATABASE [$databaseName];"
-	Log-Message "Creating SQL Server in Docker for integration tests for $databaseName on $serverName" -Type "DEBUG"
+Function Get-AppHostSqlConnectionString {
+    $sqlPort = Get-AppHostSqlPort
+    return "server=127.0.0.1,$sqlPort;database=AISoftwareFactory;User ID=sa;Password=aisoftwarefactory-mssql#1A;TrustServerCertificate=true;"
+}
+
+Function Get-AppHostSqlPort {
+    $portOutput = docker port aisoftwarefactory-mssql 1433/tcp 2>$null
+    if ($LASTEXITCODE -eq 0 -and $portOutput) {
+        foreach ($line in $portOutput) {
+            if ($line -match ':(\d+)\s*$') {
+                return $matches[1]
+            }
+        }
+    }
+
+    return "1433"
+}
+
+Function Test-AppHostSqlReady {
+    $sqlPort = Get-AppHostSqlPort
 
     try {
-        if (Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue) {
-            Invoke-Sqlcmd -ServerInstance $serverName -Database master -Credential $saCred -Query $dropDbCmd -Encrypt Optional -TrustServerCertificate
-            Invoke-Sqlcmd -ServerInstance $serverName -Database master -Credential $saCred -Query $createDbCmd -Encrypt Optional -TrustServerCertificate
-        } else {
-            # Fallback to docker exec if Invoke-Sqlcmd is not available
-            # Using -i for interactive mode to avoid password in command line
-            $dropDbCmdEscaped = $dropDbCmd -replace '"', '\"' -replace "`r`n", " " -replace "`n", " "
-            $createDbCmdEscaped = $createDbCmd -replace '"', '\"' -replace "`r`n", " " -replace "`n", " "
-            
-            # Set password as environment variable for the container to avoid exposing in process list
-            docker exec -e "SQLCMDPASSWORD=$sqlPassword" $containerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -d master -Q "$dropDbCmdEscaped" -C 2>&1 | Out-Null
-            docker exec -e "SQLCMDPASSWORD=$sqlPassword" $containerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -d master -Q "$createDbCmdEscaped" -C 2>&1 | Out-Null
-        }
-    } 
-    catch {
-        Log-Message -Message "Error creating database '$databaseName' on server '$serverName': $_" -Type "ERROR"
-        throw $_
-    }
+        $client = [System.Net.Sockets.TcpClient]::new()
+        try {
+            $asyncResult = $client.BeginConnect("127.0.0.1", [int]$sqlPort, $null, $null)
+            if (-not $asyncResult.AsyncWaitHandle.WaitOne(2000, $false)) {
+                return $false
+            }
 
-    Log-Message -Message "Recreated database '$databaseName' on server '$serverName'" -Type "DEBUG"
+            $client.EndConnect($asyncResult)
+            return $true
+        }
+        finally {
+            $client.Dispose()
+        }
+    }
+    catch {
+        return $false
+    }
 }
 
-Function New-DockerContainerForSqlServer {
+Function Test-AppHostHealthy {
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$containerName
+        [Parameter(Mandatory = $false)]
+        [string]$HealthUrl = "https://localhost:7174/_healthcheck"
     )
 
-    $imageName = "mcr.microsoft.com/mssql/server:2022-latest"
-
-    # Stop any containers using port 1433
-    Log-Message -Message "Checking for containers using port 1433..." -Type "DEBUG"
-    $containersOnPort1433 = docker ps --filter "publish=1433" --format "{{.Names}}"
-    
-    foreach ($container in $containersOnPort1433) {
-        if ($container) {
-            Log-Message -Message "Stopping container '$container' that is using port 1433..." -Type "DEBUG"
-            docker stop $container | Out-Null
-            docker rm $container | Out-Null
-        }
+    try {
+        $response = Invoke-WebRequest -Uri $HealthUrl -SkipCertificateCheck -UseBasicParsing -TimeoutSec 5
+        return $response.Content -match "Healthy|Degraded"
     }
-
-    # Check if our specific container exists (running or stopped)
-    $existingContainer = docker ps -a --filter "name=^${containerName}$" --format "{{.Names}}"
-    if ($existingContainer) {
-        Log-Message -Message "Removing existing container '$containerName'..." -Type "DEBUG"
-        docker rm -f $existingContainer | Out-Null
+    catch {
+        return $false
     }
-    
-    # Create SQL Server password that meets complexity requirements
-    # Must be at least 8 characters with uppercase, lowercase, digit, and symbol
-    $sqlPassword = Get-SqlServerPassword -ContainerName $containerName
-    
-    # Create new container
-    docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$sqlPassword" -p 1433:1433 --name $containerName -d $imageName 
-    Log-Message -Message "Waiting for SQL Server to be ready..." -Type "DEBUG"
-    
-    $maxWaitSeconds = 120
-    $waitIntervalSeconds = 3
-    $elapsedSeconds = 0
-    $isReady = $false
-    while ($elapsedSeconds -lt $maxWaitSeconds) {
-        try {
-            # Try using docker exec as an alternative to Invoke-Sqlcmd if the module is not available
-            if (Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue) {
-                Invoke-Sqlcmd -ServerInstance "localhost,1433" -Username "sa" -Password $sqlPassword -Query "SELECT 1" -Encrypt Optional -TrustServerCertificate -ErrorAction Stop | Out-Null
-            } else {
-                # Fallback to docker exec if Invoke-Sqlcmd is not available
-                # Use environment variable to avoid password in command line
-                $result = docker exec -e "SQLCMDPASSWORD=$sqlPassword" $containerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -Q "SELECT 1" -C 2>&1
-                if ($LASTEXITCODE -ne 0) {
-                    throw "SQL Server not ready yet"
-                }
-            }
-            $isReady = $true
-            break
-        } catch {
-            if ($elapsedSeconds % 30 -eq 0) {
-                Log-Message -Message "Still waiting for SQL Server... Error: $_" -Type "WARNING"
-            }
-            Start-Sleep -Seconds $waitIntervalSeconds
-            $elapsedSeconds += $waitIntervalSeconds
-        }
-    }
-    if (-not $isReady) {
-        Log-Message -Message "SQL Server did not become ready within $maxWaitSeconds seconds." -Type "ERROR"
-        throw "SQL Server Docker container '$containerName' did not become ready in time."
-    }
-    
-    Log-Message -Message "SQL Server Docker container '$containerName' should be running." -Type "DEBUG"
-
 }
+
+Function Start-AppHostEnvironment {
+    param (
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Full", "ContainersOnly")]
+        [string]$StartupMode = "Full"
+    )
+
+    $containersOnly = $StartupMode -eq "ContainersOnly"
+    if (($containersOnly -and (Test-AppHostSqlReady)) -or ((-not $containersOnly) -and (Test-AppHostHealthy))) {
+        $message = if ($containersOnly) {
+            "AppHost SQL container already ready. Reusing running environment."
+        }
+        else {
+            "AppHost already healthy. Reusing running environment."
+        }
+        Log-Message -Message $message -Type "INFO"
+        return $null
+    }
+
+    $appHostProjectPath = Get-AppHostProjectPath
+    $logDirectory = Join-Path (Resolve-Path .\) "build"
+    if (-not (Test-Path $logDirectory)) {
+        New-Item -Path $logDirectory -ItemType Directory -Force | Out-Null
+    }
+
+    $stdoutLog = Join-Path $logDirectory "apphost.stdout.log"
+    $stderrLog = Join-Path $logDirectory "apphost.stderr.log"
+
+    $previousDotnetEnvironment = $env:DOTNET_ENVIRONMENT
+    $previousAspNetCoreEnvironment = $env:ASPNETCORE_ENVIRONMENT
+    $previousDisableNgrokTunnel = $env:DISABLE_NGROK_TUNNEL
+    $previousNgrokAuthToken = $env:NGROK_AUTHTOKEN
+    $previousAppHostStartupMode = $env:APPHOST_STARTUP_MODE
+
+    $env:DOTNET_ENVIRONMENT = "Development"
+    $env:ASPNETCORE_ENVIRONMENT = "Development"
+    $env:DISABLE_NGROK_TUNNEL = "true"
+    $env:NGROK_AUTHTOKEN = ""
+    $env:APPHOST_STARTUP_MODE = if ($containersOnly) { "ContainersOnly" } else { "Full" }
+
+    try {
+        $startProcessArgs = @{
+            FilePath              = "dotnet"
+            ArgumentList          = "run --no-build --configuration Release"
+            WorkingDirectory      = $appHostProjectPath
+            RedirectStandardOutput = $stdoutLog
+            RedirectStandardError  = $stderrLog
+            PassThru              = $true
+        }
+        if ($IsWindows) {
+            $startProcessArgs['WindowStyle'] = 'Hidden'
+        }
+        $process = Start-Process @startProcessArgs
+    }
+    finally {
+        $env:DOTNET_ENVIRONMENT = $previousDotnetEnvironment
+        $env:ASPNETCORE_ENVIRONMENT = $previousAspNetCoreEnvironment
+        $env:DISABLE_NGROK_TUNNEL = $previousDisableNgrokTunnel
+        $env:NGROK_AUTHTOKEN = $previousNgrokAuthToken
+        $env:APPHOST_STARTUP_MODE = $previousAppHostStartupMode
+    }
+
+    $timeout = [TimeSpan]::FromMinutes(10)
+    $deadline = [DateTime]::UtcNow.Add($timeout)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $ready = if ($containersOnly) { Test-AppHostSqlReady } else { Test-AppHostHealthy }
+        if ($ready) {
+            $message = if ($containersOnly) {
+                "AppHost SQL container is ready."
+            }
+            else {
+                "AppHost environment is healthy."
+            }
+            Log-Message -Message $message -Type "INFO"
+            $script:appHostProcess = $process
+            return $process
+        }
+
+        if ($process.HasExited) {
+            throw "AppHost exited before becoming healthy. See build\apphost.stderr.log."
+        }
+
+        Start-Sleep -Seconds 3
+    }
+
+    try {
+        if (-not $process.HasExited) {
+            $process.Kill($true)
+        }
+    }
+    catch {
+    }
+
+    throw "AppHost did not become healthy within $($timeout.TotalSeconds) seconds."
+}
+
+Function Stop-AppHostEnvironment {
+    if ($script:appHostProcess) {
+        try {
+            if (-not $script:appHostProcess.HasExited) {
+                $script:appHostProcess.Kill($true)
+                $script:appHostProcess.WaitForExit(10000) | Out-Null
+            }
+        }
+        finally {
+            $script:appHostProcess.Dispose()
+            $script:appHostProcess = $null
+        }
+    }
+}
+
 
 Function Test-IsDockerRunning {
     <#
@@ -502,52 +568,25 @@ function Join-PathSegments {
     return $result
 }
 
-Function Test-IsArmArchitecture {
-    <#
-    .SYNOPSIS
-        Tests if the current system is running on ARM architecture.
-    .OUTPUTS
-        [bool] True if ARM or ARM64, False otherwise.
-    #>
-    return [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -in @(
-        [System.Runtime.InteropServices.Architecture]::Arm,
-        [System.Runtime.InteropServices.Architecture]::Arm64
-    )
-}
-
 Function Get-ResolvedDatabaseEngine {
     <#
     .SYNOPSIS
-        Determines the database engine to use based on environment and capabilities.
+        Determines the database engine to use for the standardized AppHost flow.
     .PARAMETER currentEngine
         The currently configured engine value (from DATABASE_ENGINE env var), or empty string.
-    .PARAMETER onLinux
-        Whether the current platform is Linux.
-    .PARAMETER dockerAvailable
-        Whether Docker is installed and running.
     .OUTPUTS
-        [string] One of: "LocalDB", "SQL-Container", "SQLite"
+        [string] "AppHost"
     #>
     param (
         [Parameter(Mandatory = $false)]
-        [string]$currentEngine = "",
-        [Parameter(Mandatory = $false)]
-        [bool]$onLinux = $false,
-        [Parameter(Mandatory = $false)]
-        [bool]$dockerAvailable = $false
+        [string]$currentEngine = ""
     )
 
     if ([string]::IsNullOrEmpty($currentEngine)) {
-        if ($onLinux) {
-            if ($dockerAvailable) { return "SQL-Container" }
-            else { return "SQLite" }
-        }
-        else {
-            return "LocalDB"
-        }
+        return "AppHost"
     }
 
-    $validEngines = @("LocalDB", "SQL-Container", "SQLite")
+    $validEngines = @("AppHost")
     if ($currentEngine -notin $validEngines) {
         throw "Invalid DATABASE_ENGINE value '$currentEngine'. Valid values: $($validEngines -join ', ')"
     }
@@ -559,20 +598,16 @@ Function Get-DefaultDatabaseServer {
     .SYNOPSIS
         Returns the default database server name for a given engine type.
     .PARAMETER engine
-        The database engine: "LocalDB", "SQL-Container", or "SQLite".
+        The database engine: "AppHost".
     .OUTPUTS
-        [string] The default server name, or empty string for SQLite.
+        [string] The default server name.
     #>
     param (
         [Parameter(Mandatory = $true)]
         [string]$engine
     )
 
-    switch ($engine) {
-        "LocalDB"       { return "(LocalDb)\MSSQLLocalDB" }
-        "SQL-Container" { return "localhost" }
-        default         { return "" }
-    }
+    return "127.0.0.1,1433"
 }
 
 Function Get-ResolvedDatabaseName {
@@ -605,10 +640,7 @@ Function Get-ResolvedDatabaseName {
         return $explicitName
     }
 
-    if ($onLinux -or $localBuild) {
-        return Generate-UniqueDatabaseName -baseName $baseName -generateUnique $false
-    }
-    return Generate-UniqueDatabaseName -baseName $baseName -generateUnique $true
+    return $baseName
 }
 
 Function New-SqlServerConnectionString {

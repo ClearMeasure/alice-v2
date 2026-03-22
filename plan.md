@@ -40,7 +40,7 @@ The fixture currently launches a separate MCP server process on `http://localhos
 - Instead, depend on `ServerFixture` having already started UI.Server
 - Point the `HttpClientTransport` `Endpoint` at `ServerFixture.ApplicationBaseUrl + "/mcp"` (i.e. `https://localhost:7174/mcp`)
 - Use `DangerousAcceptAnyServerCertificateValidator` on the HTTP client (UI.Server uses HTTPS)
-- Keep SQLite WAL mode setup (still needed for concurrent access)
+- Keep database concurrency setup aligned with the AppHost-managed SQL Server path
 
 ### 4. Build, run unit tests, run integration tests, run acceptance tests
 - Run private build to verify compilation and unit/integration tests

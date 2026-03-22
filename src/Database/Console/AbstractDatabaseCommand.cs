@@ -49,32 +49,20 @@ public abstract class AbstractDatabaseCommand(string action) : Command<DatabaseO
                 return envConnStr;
         }
 
-        // Determine if this is a local server (localhost, 127.0.0.1, or LocalDB)
+        // Determine if this is a local server reached through the AppHost-managed host mapping.
         var serverName = (options.DatabaseServer ?? string.Empty).Trim();
         var isLocalServer = serverName.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
                            serverName.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
                            serverName.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
-                           serverName.Contains("LocalDb", StringComparison.OrdinalIgnoreCase) ||
-                           serverName.Contains("(LocalDb)", StringComparison.OrdinalIgnoreCase) ||
                            serverName.StartsWith("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
                            serverName.StartsWith("localhost", StringComparison.OrdinalIgnoreCase);
 
-
-
-        
-        // Format DataSource to use TCP on port 1433 for non-LocalDB connections
-        // This forces TCP instead of Named Pipes
+        // Format DataSource to use TCP on port 1433 when a port is not already specified.
         var dataSource = options.DatabaseServer ?? string.Empty;
-        var isLocalDb = serverName.Contains("LocalDb", StringComparison.OrdinalIgnoreCase) ||
-                       serverName.Contains("(LocalDb)", StringComparison.OrdinalIgnoreCase);
-        
-        if (!isLocalDb)
+        if (!string.IsNullOrWhiteSpace(dataSource))
         {
-            // For non-LocalDB servers, ensure TCP port 1433 is specified
-            // Check if port is already specified (comma, colon, or backslash indicates port/instance)
             if (!dataSource.Contains(',') && !dataSource.Contains(':') && !dataSource.Contains('\\'))
             {
-                // No port specified, add port 1433 to force TCP connection
                 dataSource = $"{dataSource},1433";
             }
         }
@@ -90,17 +78,15 @@ public abstract class AbstractDatabaseCommand(string action) : Command<DatabaseO
         // These must be explicitly set to ensure DbUp preserves them when creating master connections
         if (isLocalServer)
         {
-            // Local servers: don't encrypt, trust certificate
+            // Local AppHost-managed servers: don't encrypt, trust certificate
             builder.Encrypt = false;
             builder.TrustServerCertificate = true;
-            // Diagnostic logging suppressed for clean build output
         }
         else
         {
-            // Remote servers or Azure SQL Database: encrypt, don't trust certificate (require proper validation)
+            // Remote servers or Azure SQL Database: encrypt, don't trust certificate.
             builder.Encrypt = true;
             builder.TrustServerCertificate = false;
-            // Diagnostic logging suppressed for clean build output
         }
 
         if (string.IsNullOrWhiteSpace(options.DatabaseUser))

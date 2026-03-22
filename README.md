@@ -20,17 +20,14 @@ src/
   AppHost/         .NET Aspire orchestration
   ServiceDefaults/ Aspire service defaults
   UnitTests/             NUnit + Shouldly
-  IntegrationTests/      NUnit, LocalDB / SQL Server / SQLite
+  IntegrationTests/      NUnit against the AppHost-managed SQL environment
   AcceptanceTests/       NUnit + Playwright
 ```
 
 ## Prerequisites
 
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download)
-- One of the following database options:
-  - **Windows:** SQL Server LocalDB (included with Visual Studio)
-  - **Linux/macOS with Docker:** SQL Server 2022 runs automatically in a container
-  - **Linux/macOS without Docker:** SQLite (automatic fallback)
+- Docker Desktop or Docker Engine for the AppHost-managed SQL Server container
 - [PowerShell 7+](https://github.com/PowerShell/PowerShell) (cross-platform, required for build scripts)
 - [Playwright browsers](https://playwright.dev/) (for acceptance tests only)
 
@@ -43,7 +40,7 @@ src/
 # Quick build (Linux/macOS)
 ./build.sh
 
-# Full build — clean, compile, unit tests, DB migration, integration tests
+# Full build — clean, compile, unit tests, AppHost startup, integration tests
 . .\build.ps1 ; Build
 
 # dotnet CLI directly
@@ -56,22 +53,18 @@ dotnet build src/AISoftwareFactory.slnx --configuration Release
 # Unit tests
 dotnet test src/UnitTests --configuration Release
 
-# Integration tests
-dotnet test src/IntegrationTests --configuration Release
-
-# Acceptance tests (install Playwright browsers first)
-pwsh src/AcceptanceTests/bin/Debug/net10.0/playwright.ps1 install
-dotnet test src/AcceptanceTests --configuration Debug
+# Full acceptance test pass
+.\AcceptanceTests.ps1
 ```
 
 ## Run Locally
 
 ```bash
-cd src/UI/Server
+cd src/AppHost
 dotnet run
 ```
 
-The application starts at `https://localhost:7174`. Health check endpoint: `https://localhost:7174/_healthcheck`.
+The AppHost starts the SQL Server container, database migrations, `UI.Server`, and `Worker`. The application is available at `https://localhost:7174`. Health check endpoint: `https://localhost:7174/_healthcheck`.
 
 ---
 

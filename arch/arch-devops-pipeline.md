@@ -22,21 +22,18 @@ C4Deployment
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 
   Deployment_Node(local, "Developer Workstation", "Local machine") {
-    Container(privatebuild, "privatebuild.ps1", "PowerShell", "Init, Compile, Unit Tests, DB Setup, Integration Tests")
-    Container(accepttests, "acceptancetests.ps1", "PowerShell + Playwright", "Compile, DB Setup, Acceptance Tests")
+    Container(privatebuild, "privatebuild.ps1", "PowerShell", "Init, Compile, Unit Tests, AppHost startup, Integration Tests")
+    Container(accepttests, "acceptancetests.ps1", "PowerShell + Playwright", "Compile, AppHost startup, Acceptance Tests")
   }
 
   Deployment_Node(github, "GitHub", "Source Control + CI/CD") {
     Deployment_Node(feature, "Feature Branch", "git push") {
       Deployment_Node(build_wf, "Build Workflow", "build.yml, on: push, all branches") {
-        Container(build_sql, "Integration Build (SQL Container)", "ubuntu-latest", "Init, Compile, UnitTests, DB Setup, IntegrationTest")
-        Container(build_sqlite, "Integration Build (SQLite)", "ubuntu-latest", "Build -UseSqlite")
-        Container(build_arm, "Integration Build (ARM SQLite)", "ubuntu-24.04-arm", "Build -UseSqlite")
-        Container(build_win, "Integration Build (Windows)", "windows-latest", "Build with LocalDB")
+        Container(build_sql, "Integration Build (Linux AppHost)", "ubuntu-latest", "Init, Compile, UnitTests, AppHost startup, IntegrationTest")
+        Container(build_win, "Integration Build (Windows AppHost)", "windows-latest", "Build with AppHost")
         Container(code_analysis, "Code Analysis", "dotnet format", "style, analyzers, EnforceCodeStyleInBuild")
         Container(security_scan, "Security Scan", "Gitleaks + dotnet list", "NuGet vulnerabilities, secrets, credential files")
-        Container(at_x86, "Acceptance Tests (x86)", "Playwright + SQLite", "Invoke-AcceptanceTests")
-        Container(at_arm, "Acceptance Tests (ARM)", "Playwright + SQLite", "Invoke-AcceptanceTests -UseSqlite")
+        Container(at_x86, "Acceptance Tests", "Playwright + AppHost", "Invoke-AcceptanceTests")
       }
       Deployment_Node(publish, "Publish", "needs: build-linux") {
         Container(docker_acr, "Docker Build to ACR", "aisoftwarefactorygithubacr.azurecr.io", "Build and push container image")
@@ -93,12 +90,12 @@ C4Deployment
 
 | # | Stage | Trigger | Tool | Key Steps |
 |---|-------|---------|------|-----------|
-| 1 | **Private Build** | Manual (`privatebuild.ps1`) | PowerShell + .NET CLI | Clean, Compile, Unit Tests, DB Migrate, Integration Tests |
-| 2 | **Acceptance Tests** | Manual (`acceptancetests.ps1`) | PowerShell + Playwright | Compile, DB Setup, Playwright browser tests |
-| 3 | **Integration Build** | `git push` (all branches) | GitHub Actions | 4 build matrix variants (SQL Container, SQLite, ARM, Windows) |
+| 1 | **Private Build** | Manual (`privatebuild.ps1`) | PowerShell + .NET CLI | Clean, Compile, Unit Tests, AppHost startup, Integration Tests |
+| 2 | **Acceptance Tests** | Manual (`acceptancetests.ps1`) | PowerShell + Playwright | Compile, AppHost startup, Playwright browser tests |
+| 3 | **Integration Build** | `git push` (all branches) | GitHub Actions | Linux AppHost and Windows AppHost builds |
 | 4 | **Code Analysis** | `git push` (all branches) | GitHub Actions | `dotnet format style`, `dotnet format analyzers`, `EnforceCodeStyleInBuild` |
 | 5 | **Security Scan** | `git push` (all branches) | GitHub Actions | NuGet vulnerability scan, Gitleaks, credential file scan, code pattern scan |
-| 6 | **Acceptance Tests (CI)** | `git push` (all branches) | GitHub Actions | Playwright tests on x86 SQLite and ARM SQLite |
+| 6 | **Acceptance Tests (CI)** | `git push` (all branches) | GitHub Actions | Playwright tests against the AppHost-managed stack |
 | 7 | **Publish** | After build-linux succeeds | GitHub Actions | Docker → ACR, NuGet → GitHub Packages, NuGet → Octopus |
 | 8 | **PR Review** | PR opened | Copilot + Human | Architecture, security, testing standards, dependency review |
 | 9 | **Deploy to TDD** | Build completed on `master` | GitHub Actions + Octopus | Create release, deploy, health check, acceptance tests, report status |
@@ -112,15 +109,13 @@ privatebuild.ps1 → Build()
                       ├── Init()           — clean, restore
                       ├── Compile()        — dotnet build (warnings-as-errors)
                       ├── UnitTests()      — dotnet test (NUnit + code coverage)
-                      ├── Setup-DatabaseForBuild()
-                      │     ├── SQL-Container: Docker + migrate
-                      │     └── LocalDB: integrated auth + migrate
+                      ├── Setup-DatabaseForBuild() — start AppHost + wait for health
                       └── IntegrationTest() — dotnet test
 
 acceptancetests.ps1 → Invoke-AcceptanceTests()
                         ├── Init()
                         ├── Compile()
-                        ├── Setup-DatabaseForBuild()
+                        ├── Setup-DatabaseForBuild() — start AppHost + wait for health
                         └── AcceptanceTests() — Playwright
 
 CI Build (build.yml) → Build() + Package-Everything()

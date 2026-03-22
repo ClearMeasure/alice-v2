@@ -23,7 +23,7 @@ dotnet test src/UnitTests --configuration Release
 # Single unit test by name
 dotnet test src/UnitTests --configuration Release --filter "FullyQualifiedName~TestClassName.TestMethodName"
 
-# Integration tests (requires SQL Server — LocalDB on Windows, Docker container on Linux, SQLite fallback)
+# Integration tests (AppHost-managed SQL Server environment)
 dotnet test src/IntegrationTests --configuration Release
 
 # Acceptance tests (Playwright — install browsers first)
@@ -34,7 +34,7 @@ dotnet test src/AcceptanceTests --configuration Debug
 dotnet test src/AcceptanceTests --configuration Debug --filter "FullyQualifiedName~TestClassName.TestMethodName"
 ```
 
-**Run locally:** `cd src/UI/Server && dotnet run` → `https://localhost:7174` (health: `/_healthcheck`)
+**Run locally:** `cd src/AppHost && dotnet run` → `https://localhost:7174` (health: `/_healthcheck`)
 
 ## Onion Architecture (Strict)
 
@@ -105,7 +105,7 @@ DbUp scripts in `src/Database/scripts/Update/`, numbered sequentially (`###_Desc
 
 **Core** — MediatR.Contracts 2.0.1, Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions 10.0.0, Microsoft.Extensions.Logging.Abstractions 10.0.0
 
-**DataAccess** — MediatR 12.4.1, Microsoft.EntityFrameworkCore 10.0.0, Microsoft.EntityFrameworkCore.SqlServer 10.0.0, Microsoft.EntityFrameworkCore.Sqlite 10.0.0, NServiceBus.Persistence.Sql.TransactionalSession 8.3.0, ClearMeasureLabs.HostedEndpoint.SqlServerTransport 1.0.30
+**DataAccess** — MediatR 12.4.1, Microsoft.EntityFrameworkCore 10.0.0, Microsoft.EntityFrameworkCore.SqlServer 10.0.0, NServiceBus.Persistence.Sql.TransactionalSession 8.3.0, ClearMeasureLabs.HostedEndpoint.SqlServerTransport 1.0.30
 
 **Database** — DbUp 5.0.41, dbup-sqlserver 6.0.16, Spectre.Console 0.54.0, Spectre.Console.Cli 0.53.0
 
@@ -119,7 +119,7 @@ DbUp scripts in `src/Database/scripts/Update/`, numbered sequentially (`###_Desc
 
 **LlmGateway** — Azure.AI.OpenAI 2.1.0, MediatR 12.4.1, Microsoft.Extensions.AI 9.7.0, Microsoft.Extensions.AI.OpenAI 9.7.1-preview.1.25365.4, Microsoft.Extensions.AI.Abstractions 9.7.1
 
-**McpServer** — ModelContextProtocol 1.0.0, ModelContextProtocol.AspNetCore 1.0.0, Lamar.Microsoft.DependencyInjection 15.0.1, MediatR 12.4.1, Microsoft.EntityFrameworkCore.SqlServer 10.0.0, Microsoft.EntityFrameworkCore.Sqlite 10.0.0
+**McpServer** — ModelContextProtocol 1.0.0, ModelContextProtocol.AspNetCore 1.0.0, Lamar.Microsoft.DependencyInjection 15.0.1, MediatR 12.4.1, Microsoft.EntityFrameworkCore.SqlServer 10.0.0
 
 **Worker** — ClearMeasureLabs.HostedEndpoint.SqlServerTransport 1.0.30, Microsoft.Extensions.Hosting 10.0.2
 

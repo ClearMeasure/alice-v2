@@ -44,7 +44,7 @@ This is a application built with:
 - **.NET 10.0** - Primary framework
 - **Blazor** - UI framework (WebAssembly + Server)
 - **Entity Framework Core 10** - Data access
-- **SQL Server** - Database (LocalDB for development)
+- **SQL Server** - Database orchestrated through Aspire AppHost for development and tests
 - **Onion Architecture** - Clean architecture pattern with Core, DataAccess, and UI layers
 - **MediatR** - CQRS pattern for queries and commands
 
@@ -131,7 +131,7 @@ All branches must be created inside a folder matching the username of the accoun
 - **DO NOT** upgrade .NET SDK version without approval (currently 10.0.x)
 - **ALWAYS** include unit tests for new functionality
 - **ALWAYS** update XML documentation for public APIs
-- Integration tests require SQL Server LocalDB
+- Integration tests run against the AppHost-managed SQL Server environment
 
 ## Dependencies
 
@@ -140,7 +140,7 @@ All branches must be created inside a folder matching the username of the accoun
 | Project | Key NuGet Packages |
 |---------|--------------------|
 | Core | MediatR.Contracts 2.0.1, Microsoft.Extensions.Logging.Abstractions 10.0.0 |
-| DataAccess | MediatR 12.4.1, Microsoft.EntityFrameworkCore 10.0.0, EF Core SqlServer + Sqlite 10.0.0, NServiceBus.Persistence.Sql.TransactionalSession 8.3.0 |
+| DataAccess | MediatR 12.4.1, Microsoft.EntityFrameworkCore 10.0.0, EF Core SqlServer 10.0.0, NServiceBus.Persistence.Sql.TransactionalSession 8.3.0 |
 | Database | DbUp 5.0.41, dbup-sqlserver 6.0.16, Spectre.Console 0.54.0 |
 | UI.Server | Lamar.Microsoft.DependencyInjection 15.0.1, Azure.Monitor.OpenTelemetry.AspNetCore 1.3.0, ModelContextProtocol 1.0.0, NServiceBus.Extensions.Hosting 3.0.1, OpenTelemetry 1.12.0 |
 | UI.Client | BlazorMvc 2.1.1, MediatR 12.4.1, Lamar.Microsoft.DependencyInjection 15.0.1, Microsoft.AspNetCore.Components.WebAssembly 10.0.0 |
